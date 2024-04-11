@@ -44,7 +44,7 @@ def parse_block_paragraph(document: str) -> TokenYield:
     return ( [token], right )
 
 def parse_block_list(document: str) -> TokenYield:
-    regexp = re.compile(r"^[\t ]*(-|\*|\d\.).*")
+    regexp = re.compile(r"^[\t ]*(-|\*|\d\.)")
     cur_document = document
     match = regexp.match(document)
     content = ""
@@ -58,7 +58,7 @@ def parse_block_list(document: str) -> TokenYield:
     if len(content) > 0:
         token_list.append(Token(BlockType.LIST, [content]))
     
-    return ( token_list , "")
+    return ( token_list , cur_document )
 
 # block := paragraph | heading | h_rule | list
 def parse_blocks(document: str) -> list[Union[Token, str]]:

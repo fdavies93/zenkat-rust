@@ -1,2 +1,4 @@
 # Zenkat
-*(Blazingly Fast Crab Edition)*
+*(Rocket Powered Crab Edition)*
+
+[Find design notes here](dev-docs/design.md).

@@ -20,9 +20,12 @@ You can make a list of links:
 Todos aren't treated in a special way yet, but they might be in the future.
 
 - [ ] This is a todo item
+
 - [x] This is a checked todo item
+
 - [ ] This one has children 
   - [ ] Child A
   - [ ] Child B
   - [ ] Child C
+
 - [ ] When todo items get too long and unwieldy it may be helpful to link them to a separate document. [[notes/chapter-1]]
