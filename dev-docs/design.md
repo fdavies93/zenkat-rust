@@ -36,7 +36,9 @@ Handwritten parsers are also substantially easier to reason about and debug than
 - Possibilities and priorities for parsing at a given level (blocks, inline)
 - What's emitted from given blocks to the AST
 
-Both should be able to be added to and 
+Both should be able to be added to and extended.
+
+**In practice the best solution is likely just to use Yum and let the core grammar serve as its own config file.**
 
 ## Asynchronous Parsing
 
