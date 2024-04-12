@@ -8,7 +8,7 @@ struct Args {
     path: String,
 }
 
-fn walk(path: &Path) -> Vec<PathBuf> {
+fn walk(path: &Path, follow_symlinks: bool) -> Vec<PathBuf> {
     let mut vec: Vec<PathBuf> = Vec::new();
 
     // bfs for directories
@@ -29,6 +29,15 @@ fn walk(path: &Path) -> Vec<PathBuf> {
                     vec.push(pathbuf);
                 } else if entry_path.is_dir() {
                     paths.push_back(entry_path.to_path_buf());
+                } else if entry_path.is_symlink() && follow_symlinks {
+                    let dest = entry_path.read_link().expect("Symlink failure");
+                    let symlink_path = dest.as_path();
+                    if symlink_path.is_dir() {
+                        paths.push_back(dest);
+                    } else if symlink_path.is_file() && symlink_path.extension().expect("") == "md"
+                    {
+                        vec.push(dest);
+                    }
                 }
                 // no symlink support for now
             }
@@ -54,7 +63,7 @@ fn main() {
         vec.push(path.to_path_buf())
     } else if path.is_dir() {
         // crawl the directory structure
-        let paths = walk(path);
+        let paths = walk(path, false);
         vec.extend(paths.into_iter());
     }
 
