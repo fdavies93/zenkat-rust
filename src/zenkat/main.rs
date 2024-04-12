@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::collections::VecDeque;
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::thread;
 use tokio::process::Command;
 
 #[derive(Parser, Debug)]
@@ -78,6 +78,8 @@ async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: &str) -> 
 async fn main() {
     let args = Args::parse();
 
+    let processes = thread::available_parallelism().expect("");
+
     let path = Path::new(&args.path);
 
     let parser = "target/debug/zk-parse";
@@ -101,11 +103,12 @@ async fn main() {
     }
 
     println!(
-        "Found {} markdown files in {}, parsing.",
+        "Found {} markdown files in {}, parsing with {} processes.",
         vec.len(),
-        &args.path
+        &args.path,
+        processes
     );
 
-    let parsed = parse_at_paths(vec, 4, parser).await;
+    let parsed = parse_at_paths(vec, processes.into(), parser).await;
     println!("{:?}", parsed);
 }
