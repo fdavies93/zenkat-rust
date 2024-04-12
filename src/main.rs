@@ -29,6 +29,7 @@ fn walk(path: &Path, follow_symlinks: bool) -> Vec<PathBuf> {
                     vec.push(pathbuf);
                 } else if entry_path.is_dir() {
                     paths.push_back(entry_path.to_path_buf());
+                // for unknown reason seems to treat symlinks like normal directories :o
                 } else if entry_path.is_symlink() && follow_symlinks {
                     let dest = entry_path.read_link().expect("Symlink failure");
                     let symlink_path = dest.as_path();
