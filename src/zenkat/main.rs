@@ -1,5 +1,6 @@
 use clap::Parser;
 use std::collections::VecDeque;
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::thread;
 use tokio::process::Command;
@@ -7,6 +8,12 @@ use tokio::process::Command;
 #[derive(Parser, Debug)]
 struct Args {
     path: String,
+
+    #[arg(short, long, default_value = "0")]
+    processes: usize,
+
+    #[arg(long, default_value = "")]
+    parser: String,
 }
 
 fn walk(path: &Path, follow_symlinks: bool) -> Vec<PathBuf> {
@@ -50,7 +57,7 @@ fn walk(path: &Path, follow_symlinks: bool) -> Vec<PathBuf> {
     return vec;
 }
 
-async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: &str) -> Vec<String> {
+async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: String) -> Vec<String> {
     let mut parsed: Vec<String> = vec![];
     let mut children: VecDeque<_> = VecDeque::new();
     let mut remaining_paths: Vec<PathBuf> = paths.to_vec();
@@ -64,7 +71,7 @@ async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: &str) -> 
                 break;
             }
             let next_path = remaining_paths.pop().expect("");
-            let child = Command::new(parser).arg(next_path).output();
+            let child = Command::new(parser.as_str()).arg(next_path).output();
             children.push_back(child);
         }
         let output = children.pop_front().expect("").await.expect("");
@@ -76,13 +83,19 @@ async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: &str) -> 
 
 #[tokio::main]
 async fn main() {
+    let mut processes = thread::available_parallelism().expect("");
+    let mut parser = String::from("target/debug/zk-parse");
+
     let args = Args::parse();
-
-    let processes = thread::available_parallelism().expect("");
-
     let path = Path::new(&args.path);
 
-    let parser = "target/debug/zk-parse";
+    if args.processes > 0 {
+        processes = NonZeroUsize::new(args.processes).expect("");
+    }
+
+    if args.parser.len() > 0 {
+        parser = args.parser;
+    }
 
     if !path.try_exists().is_ok_and(|x| x) {
         println!("Couldn't access path at {}", args.path);
