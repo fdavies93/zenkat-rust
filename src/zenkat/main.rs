@@ -1,3 +1,4 @@
+use async_process::Command;
 use clap::Parser;
 use std::collections::VecDeque;
 use std::path::Path;
@@ -48,6 +49,20 @@ fn walk(path: &Path, follow_symlinks: bool) -> Vec<PathBuf> {
     return vec;
 }
 
+fn parse_at_paths(paths: Vec<PathBuf>, processes: u8) {
+    let mut parsed: Vec<String> = vec![];
+    let mut commands: Vec<async_process::Child> = vec![];
+
+    loop {
+        if paths.len() == 0 && commands.len() == 0 { break }
+        if commands.len() < processes &&  {}
+    }
+    for path in paths {
+        let child = Command::new("zk-parse").arg("path").spawn().expect("");
+        commands.push(child);
+    }
+}
+
 fn main() {
     let args = Args::parse();
 
@@ -68,5 +83,11 @@ fn main() {
         vec.extend(paths.into_iter());
     }
 
-    println!("Found {} markdown files in {}", vec.len(), &args.path);
+    println!(
+        "Found {} markdown files in {}, parsing.",
+        vec.len(),
+        &args.path
+    );
+
+    parse_at_paths(vec, 4);
 }

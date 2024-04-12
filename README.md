@@ -8,6 +8,7 @@
 - clap for argument parsing
 - nom for parser combinator framework
 - crossterm for rendering to terminal
+- async_process for calling subprocesses (i.e. parsers)
 
 ## FAQs
 
