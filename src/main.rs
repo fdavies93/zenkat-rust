@@ -58,5 +58,5 @@ fn main() {
         vec.extend(paths.into_iter());
     }
 
-    println!("{:?}", vec);
+    println!("Found {} markdown files in {}", vec.len(), &args.path);
 }
