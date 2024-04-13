@@ -52,7 +52,6 @@ fn walk(path: &Path, follow_symlinks: bool) -> Vec<PathBuf> {
             }
         }
     }
-    println!("{}", vec.len());
 
     return vec;
 }
@@ -71,7 +70,7 @@ async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: String) -
                 break;
             }
             let next_path = remaining_paths.pop().expect("");
-            let child = Command::new(parser.as_str()).arg(next_path).output();
+            let child = Command::new(parser.as_str()).arg(&next_path).output();
             children.push_back(child);
         }
         let output = children.pop_front().expect("").await.expect("");
@@ -84,7 +83,7 @@ async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: String) -
 #[tokio::main]
 async fn main() {
     let mut processes = thread::available_parallelism().expect("");
-    let mut parser = String::from("target/debug/zk-parse");
+    let mut parser = String::from("target/debug/md-parse");
 
     let args = Args::parse();
     let path = Path::new(&args.path);
@@ -106,7 +105,6 @@ async fn main() {
 
     let pathbuf = path.canonicalize().expect("");
     let path = pathbuf.as_path();
-    println!("{:?}", path);
     if path.is_file() && path.extension().unwrap() == "md" {
         vec.push(path.to_path_buf())
     } else if path.is_dir() {

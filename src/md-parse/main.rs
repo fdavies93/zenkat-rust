@@ -54,7 +54,7 @@ fn parse_paragraph(raw: String) -> Option<(String, Node)> {
     let mut buffer = String::new();
     let mut output_buffer = String::new();
     loop {
-        if buffer == "\n\n" || unconsumed.is_empty() {
+        if unconsumed.is_empty() {
             break;
         }
 
@@ -62,16 +62,14 @@ fn parse_paragraph(raw: String) -> Option<(String, Node)> {
         if prefix == "\n" {
             buffer.push_str(prefix);
         } else {
+            if buffer.len() >= 2 {
+                break;
+            }
             output_buffer.push_str(buffer.as_str());
             buffer.clear();
             output_buffer.push_str(prefix);
         }
         unconsumed = String::from(suffix);
-    }
-
-    if output_buffer.is_empty() {
-        // might this introduce an edge case error? yes!
-        return None;
     }
 
     let output = Node::new(output_buffer, NodeType::PARAGRAPH);
