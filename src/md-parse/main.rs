@@ -1,6 +1,7 @@
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
+use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::io::{self, Write};
 
@@ -20,6 +21,7 @@ pub struct Node {
     pub raw: String,
     pub block_type: NodeType,
     pub blocks: std::vec::Vec<Node>,
+    pub data: HashMap<String, String>,
 }
 
 impl Node {
@@ -28,23 +30,7 @@ impl Node {
             raw,
             block_type,
             blocks: vec![],
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Serialize)]
-pub struct MDocument {
-    pub path: String,
-    pub raw: String,
-    pub blocks: std::vec::Vec<Node>,
-}
-
-impl MDocument {
-    pub fn new(path: String, raw: String) -> Self {
-        Self {
-            path,
-            raw,
-            blocks: vec![],
+            data: HashMap::new(),
         }
     }
 }
@@ -77,9 +63,10 @@ fn parse_paragraph(raw: String) -> Option<(String, Node)> {
     return Some((unconsumed, output));
 }
 
-fn parse_document(path: &str) -> MDocument {
+fn parse_document(path: &str) -> Node {
     let raw = read_to_string(path).expect("");
-    let mut output = MDocument::new(String::from(path), raw.clone());
+    let mut output = Node::new(raw.clone(), NodeType::DOCUMENT);
+    output.data.insert(String::from("path"), String::from(path));
     let mut to_parse = String::from(&raw);
 
     loop {
