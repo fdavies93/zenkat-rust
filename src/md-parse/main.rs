@@ -50,7 +50,7 @@ impl MDocument {
 }
 
 fn parse_paragraph(raw: String) -> Option<(String, Node)> {
-    let mut unconsumed = raw.clone();
+    let mut unconsumed = raw;
     let mut buffer = String::new();
     let mut output_buffer = String::new();
     loop {
@@ -74,7 +74,7 @@ fn parse_paragraph(raw: String) -> Option<(String, Node)> {
         return None;
     }
 
-    let output = Node::new(unconsumed.clone(), NodeType::PARAGRAPH);
+    let output = Node::new(output_buffer, NodeType::PARAGRAPH);
 
     return Some((unconsumed, output));
 }
