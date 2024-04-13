@@ -38,7 +38,9 @@ Handwritten parsers are also substantially easier to reason about and debug than
 
 Both should be able to be added to and extended.
 
-**In practice the best solution is likely just to use Yum and let the core grammar serve as its own config file.**
+**In practice the best solution is likely just to let the parser's source code serve as its own config file.**
+
+Parsers can be shipped separately from the core of the project as their own executables, so long as they adhere to the same data transfer format as the command surface expects.
 
 ## Asynchronous Parsing
 
