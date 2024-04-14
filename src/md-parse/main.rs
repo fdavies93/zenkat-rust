@@ -1,39 +1,15 @@
 use clap::Parser;
-use serde::{Deserialize, Serialize};
 use serde_json::to_string;
-use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::io::{self, Write};
+
+#[path = "../common/node.rs"]
+mod common;
+use common::{Node, NodeType};
 
 #[derive(Parser, Debug)]
 struct Args {
     path: String,
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub enum NodeType {
-    DOCUMENT,
-    PARAGRAPH,
-    HEADER,
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct Node {
-    pub raw: String,
-    pub block_type: NodeType,
-    pub blocks: std::vec::Vec<Node>,
-    pub data: HashMap<String, String>,
-}
-
-impl Node {
-    pub fn new(raw: String, block_type: NodeType) -> Self {
-        Self {
-            raw,
-            block_type,
-            blocks: vec![],
-            data: HashMap::new(),
-        }
-    }
 }
 
 fn parse_atx_header(raw: String) -> Option<(String, Node)> {

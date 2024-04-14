@@ -1,9 +1,14 @@
 use clap::Parser;
+use serde_json::from_str;
 use std::collections::VecDeque;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::thread;
 use tokio::process::Command;
+
+#[path = "../common/node.rs"]
+mod common;
+use common::{Node, NodeType};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -56,8 +61,8 @@ fn walk(path: &Path, follow_symlinks: bool) -> Vec<PathBuf> {
     return vec;
 }
 
-async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: String) -> Vec<String> {
-    let mut parsed: Vec<String> = vec![];
+async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: String) -> Vec<Node> {
+    let mut parsed: Vec<Node> = vec![];
     let mut children: VecDeque<_> = VecDeque::new();
     let mut remaining_paths: Vec<PathBuf> = paths.to_vec();
 
@@ -75,7 +80,8 @@ async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: String) -
         }
         let output = children.pop_front().expect("").await.expect("");
         let string = String::from_utf8(output.stdout).expect("");
-        parsed.push(string);
+        let parsed_string = serde_json::from_str(string.as_str()).expect("");
+        parsed.push(parsed_string);
     }
     return parsed;
 }
