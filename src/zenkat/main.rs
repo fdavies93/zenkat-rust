@@ -1,3 +1,4 @@
+use async_process::Child;
 use clap::Parser;
 use serde_json::from_str;
 use std::collections::VecDeque;
@@ -12,7 +13,7 @@ use common::{Node, NodeType};
 
 #[derive(Parser, Debug)]
 struct Args {
-    paths: Vec<String>,
+    paths: Option<Vec<String>>,
 
     #[arg(short, long, default_value = "0")]
     processes: usize,
@@ -21,46 +22,9 @@ struct Args {
     parser: String,
 }
 
+#[derive(Debug)]
 struct TreeStore {
     trees: Vec<Node>,
-}
-
-fn walk(path: &Path, follow_symlinks: bool) -> Result<Vec<PathBuf>, std::io::Error> {
-    let mut vec: Vec<PathBuf> = Vec::new();
-
-    // bfs for directories
-    let mut paths = VecDeque::from(vec![path.to_path_buf()]);
-    let err = std::io::ErrorKind::InvalidInput;
-    loop {
-        if paths.len() == 0 {
-            break;
-        }
-        let current_path = paths.pop_front().ok_or(err)?;
-
-        for entry in current_path.read_dir()? {
-            if let Ok(entry) = entry {
-                let pathbuf = entry.path();
-                let entry_path = pathbuf.as_path();
-                if entry_path.is_file() && entry_path.extension().ok_or(err)? == "md" {
-                    vec.push(pathbuf);
-                } else if entry_path.is_dir() {
-                    paths.push_back(entry_path.to_path_buf());
-                // for unknown reason seems to treat symlinks like normal directories :o
-                } else if entry_path.is_symlink() && follow_symlinks {
-                    let dest = entry_path.read_link()?;
-                    let symlink_path = dest.as_path();
-                    if symlink_path.is_dir() {
-                        paths.push_back(dest);
-                    } else if symlink_path.is_file() && symlink_path.extension().ok_or(err)? == "md"
-                    {
-                        vec.push(dest);
-                    }
-                }
-            }
-        }
-    }
-
-    return Ok(vec);
 }
 
 async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: String) -> Vec<Node> {
@@ -88,45 +52,91 @@ async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: String) -
     return parsed;
 }
 
-async fn load_tree_store(paths: Vec<String>, processes: NonZeroUsize, parser: String) -> TreeStore {
-    let mut vec: Vec<PathBuf> = Vec::new();
-    let mut store: TreeStore = TreeStore { trees: vec![] };
+// old process:
+// - walk the directories, return paths of .md files as list
+// - parse each .md file asynchronously
+// - finally, return list of all parsed entries
 
-    for path_str in paths {
-        let path = Path::new(&path_str);
+// new process:
+// - walk the directories, return Nodes corresponding to the root of each path
+// - walk Node tree and add each DOCUMENT to the list to parse
+// - parse them asynchronously and add their nodes to the tree
+// - this could later become a JIT process
 
-        if !path.try_exists().is_ok_and(|x| x) {
-            println!(
-                "Couldn't access path at {} when loading tree store.",
-                path_str.as_str()
-            );
-            continue;
+impl TreeStore {
+    fn load_tree(path: &Path, traverse_symbolic: bool) -> Option<Node> {
+        if path.is_symlink() && !traverse_symbolic {
+            return None;
+        }
+        let mut output: Node = Node::new(String::new(), NodeType::DOCUMENT);
+        if path.is_dir() {
+            output.block_type = NodeType::DIRECTORY;
+            let children = path.read_dir().ok()?;
+            let mut child_nodes = vec![];
+
+            for child in children {
+                let c_path = child.ok()?;
+                let node = TreeStore::load_tree(c_path.path().as_path(), traverse_symbolic)?;
+                child_nodes.push(node);
+            }
+
+            output.blocks = child_nodes;
         }
 
-        let pathbuf = path.canonicalize().expect("");
-        let path = pathbuf.as_path();
-        if path.is_file() && path.extension().unwrap() == "md" {
-            vec.push(path.to_path_buf())
-        } else if path.is_dir() {
-            // crawl the directory structure
-            let paths = walk(path, false).unwrap();
-            vec.extend(paths.into_iter());
-        }
+        let path_str = String::from(path.as_os_str().to_str().unwrap());
+        output.data.insert(String::from("path"), path_str);
 
-        println!(
-            "Found {} markdown files in {}, parsing with {} processes.",
-            vec.len(),
-            path.to_str().unwrap(),
-            processes
-        );
+        return Some(output);
     }
 
-    // after the paths are discovered and parsed, we need to make sure they're put back into the Node tree in the correct places
+    fn load(paths: Vec<String>, traverse_symbolic: bool) -> TreeStore {
+        let mut store: TreeStore = TreeStore { trees: vec![] };
 
-    let parsed = parse_at_paths(vec, processes.into(), parser).await;
-    store.trees = parsed;
+        for path_str in paths {
+            let path = Path::new(&path_str);
 
-    return store;
+            if !path.try_exists().is_ok_and(|x| x) {
+                println!(
+                    "Couldn't access path at {} when loading tree store.",
+                    path_str.as_str()
+                );
+                continue;
+            }
+
+            let tree_option = TreeStore::load_tree(path, traverse_symbolic);
+
+            if tree_option.is_some() {
+                store.trees.push(tree_option.unwrap());
+            }
+        }
+
+        return store;
+    }
+
+    // likely needs to work on references
+    fn get_all_documents_mut(&mut self) -> Vec<&mut Node> {
+        let mut docs: Vec<&mut Node> = vec![];
+
+        let mut remaining: VecDeque<&mut Node> = VecDeque::new();
+        for root in (self.trees).iter_mut() {
+            remaining.push_back(root);
+        }
+
+        loop {
+            if remaining.len() <= 0 {
+                return docs;
+            }
+            let next = remaining.pop_front().unwrap();
+            if next.block_type == NodeType::DOCUMENT {
+                docs.push(next);
+                continue;
+            }
+
+            for block in (next.blocks).iter_mut() {
+                remaining.push_back(block)
+            }
+        }
+    }
 }
 
 // current bugs:
@@ -152,6 +162,13 @@ async fn main() {
         parser = args.parser;
     }
 
-    let store = load_tree_store((&args.paths).clone(), processes, parser).await;
-    // println!("{:?}", parsed);
+    let paths = args.paths.unwrap_or(vec![]);
+
+    let mut store = TreeStore::load(paths, true);
+
+    let mut docs = store.get_all_documents_mut();
+
+    docs[0].raw = String::from("hello");
+
+    println!("{:?}", store.trees);
 }

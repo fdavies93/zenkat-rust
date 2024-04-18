@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::to_string;
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum NodeType {
     DIRECTORY,
     DOCUMENT,
@@ -10,7 +10,7 @@ pub enum NodeType {
     HEADER,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Node {
     pub raw: String,
     pub block_type: NodeType,
