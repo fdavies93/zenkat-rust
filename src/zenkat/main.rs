@@ -237,8 +237,14 @@ async fn main() {
     let mut store = TreeStore::load(paths, true);
 
     let docs = store.get_all_documents_mut();
-
     hydrate_docs(docs, processes.into(), &parser).await;
+
+    let docs = store.get_all_documents_mut();
+    for block in docs[0].blocks.iter() {
+        if block.block_type == NodeType::HEADER {
+            println!("{:?}", block);
+        }
+    }
 
     // println!("{:?}", store.trees);
 }
