@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum NodeType {
+    DIRECTORY,
     DOCUMENT,
     PARAGRAPH,
     HEADER,

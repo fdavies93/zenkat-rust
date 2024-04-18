@@ -88,41 +88,19 @@ async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: String) -
     return parsed;
 }
 
-// current bugs:
-// - paths involving . cause a crash
-
-// current feature improvements:
-// - zenkat should act as a server
-//   - supporting queries and outputs
-// - should be able to load multiple trees
-
-#[tokio::main]
-async fn main() {
-    let mut processes = thread::available_parallelism().expect("");
-    let mut parser = String::from("target/debug/md-parse");
-
-    let args = Args::parse();
-
-    let mut paths = vec![];
-
-    for path in &args.paths {
-        paths.push(Path::new(path));
-    }
-
-    if args.processes > 0 {
-        processes = NonZeroUsize::new(args.processes).expect("");
-    }
-
-    if args.parser.len() > 0 {
-        parser = args.parser;
-    }
-
+async fn load_tree_store(paths: Vec<String>, processes: NonZeroUsize, parser: String) -> TreeStore {
     let mut vec: Vec<PathBuf> = Vec::new();
+    let mut store: TreeStore = TreeStore { trees: vec![] };
 
-    for path in paths {
+    for path_str in paths {
+        let path = Path::new(&path_str);
+
         if !path.try_exists().is_ok_and(|x| x) {
-            println!("Couldn't access path at {}", path.to_str().unwrap());
-            return;
+            println!(
+                "Couldn't access path at {} when loading tree store.",
+                path_str.as_str()
+            );
+            continue;
         }
 
         let pathbuf = path.canonicalize().expect("");
@@ -143,6 +121,37 @@ async fn main() {
         );
     }
 
+    // after the paths are discovered and parsed, we need to make sure they're put back into the Node tree in the correct places
+
     let parsed = parse_at_paths(vec, processes.into(), parser).await;
+    store.trees = parsed;
+
+    return store;
+}
+
+// current bugs:
+// - paths involving . cause a crash
+
+// current feature improvements:
+// - zenkat should act as a server
+//   - supporting queries and outputs
+// - should be able to load multiple trees
+
+#[tokio::main]
+async fn main() {
+    let mut processes = thread::available_parallelism().expect("");
+    let mut parser = String::from("target/debug/md-parse");
+
+    let args = Args::parse();
+
+    if args.processes > 0 {
+        processes = NonZeroUsize::new(args.processes).expect("");
+    }
+
+    if args.parser.len() > 0 {
+        parser = args.parser;
+    }
+
+    let store = load_tree_store((&args.paths).clone(), processes, parser).await;
     // println!("{:?}", parsed);
 }
