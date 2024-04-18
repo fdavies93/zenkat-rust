@@ -69,6 +69,7 @@ impl TreeStore {
             return None;
         }
         let mut output: Node = Node::new(String::new(), NodeType::DOCUMENT);
+
         if path.is_dir() {
             output.block_type = NodeType::DIRECTORY;
             let children = path.read_dir().ok()?;
@@ -76,11 +77,18 @@ impl TreeStore {
 
             for child in children {
                 let c_path = child.ok()?;
-                let node = TreeStore::load_tree(c_path.path().as_path(), traverse_symbolic)?;
-                child_nodes.push(node);
+                let node_choice = TreeStore::load_tree(c_path.path().as_path(), traverse_symbolic);
+
+                if node_choice.is_some() {
+                    child_nodes.push(node_choice.unwrap());
+                }
             }
 
             output.blocks = child_nodes;
+        }
+
+        if path.is_file() && path.extension().unwrap() != "md" {
+            return None;
         }
 
         let path_str = String::from(path.as_os_str().to_str().unwrap());
@@ -140,7 +148,7 @@ impl TreeStore {
 }
 
 impl Node {
-    async fn hydrate(&mut self, parser: String) -> Result<(), std::io::ErrorKind> {
+    async fn hydrate(&mut self, parser: &String) -> Result<(), std::io::ErrorKind> {
         if self.block_type != NodeType::DOCUMENT {
             return Err(std::io::ErrorKind::InvalidInput);
         }
@@ -169,6 +177,46 @@ impl Node {
 //   - supporting queries and outputs
 // - should be able to load multiple trees
 
+async fn hydrate_docs(docs: Vec<&mut Node>, processes: usize, parser: &String) {
+    let mut children: VecDeque<_> = VecDeque::new();
+    let mut pending_doc: VecDeque<&mut Node> = VecDeque::new();
+    let mut remaining_docs: Vec<&mut Node> = vec![];
+
+    for doc in docs {
+        remaining_docs.push(doc);
+    }
+
+    loop {
+        if remaining_docs.len() == 0 && children.len() == 0 {
+            break;
+        }
+        loop {
+            if children.len() == processes || remaining_docs.len() == 0 {
+                break;
+            }
+            let next_doc = remaining_docs.pop().expect("");
+
+            let parser_clone = parser.clone();
+            let next_doc_path = next_doc.data.get("path").unwrap().clone();
+
+            pending_doc.push_back(next_doc);
+
+            let child = tokio::spawn(Command::new(parser_clone).arg(next_doc_path).output());
+
+            children.push_back(child);
+        }
+        let output = children.pop_front().unwrap().await.unwrap().unwrap();
+
+        let parsed_json = String::from_utf8(output.stdout).expect("");
+        let parsed_obj: Node = serde_json::from_str(parsed_json.as_str()).unwrap();
+
+        let finished_doc = pending_doc.pop_front().unwrap();
+
+        finished_doc.blocks = parsed_obj.blocks;
+        finished_doc.raw = parsed_obj.raw;
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let mut processes = thread::available_parallelism().expect("");
@@ -188,11 +236,9 @@ async fn main() {
 
     let mut store = TreeStore::load(paths, true);
 
-    let mut docs = store.get_all_documents_mut();
+    let docs = store.get_all_documents_mut();
 
-    for doc in docs {
-        doc.hydrate(parser.clone()).await.unwrap();
-    }
+    hydrate_docs(docs, processes.into(), &parser).await;
 
-    println!("{:?}", store.trees);
+    // println!("{:?}", store.trees);
 }
