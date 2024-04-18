@@ -12,7 +12,7 @@ use common::{Node, NodeType};
 
 #[derive(Parser, Debug)]
 struct Args {
-    path: String,
+    paths: Vec<String>,
 
     #[arg(short, long, default_value = "0")]
     processes: usize,
@@ -21,44 +21,46 @@ struct Args {
     parser: String,
 }
 
-fn walk(path: &Path, follow_symlinks: bool) -> Vec<PathBuf> {
+struct TreeStore {
+    trees: Vec<Node>,
+}
+
+fn walk(path: &Path, follow_symlinks: bool) -> Result<Vec<PathBuf>, std::io::Error> {
     let mut vec: Vec<PathBuf> = Vec::new();
 
     // bfs for directories
     let mut paths = VecDeque::from(vec![path.to_path_buf()]);
+    let err = std::io::ErrorKind::InvalidInput;
     loop {
         if paths.len() == 0 {
             break;
         }
-        let current_path = paths.pop_front().expect("");
+        let current_path = paths.pop_front().ok_or(err)?;
 
-        // might want to check with pathbufs whether this causes a memory leak due to copies
-
-        for entry in current_path.read_dir().expect("read_dir failed") {
+        for entry in current_path.read_dir()? {
             if let Ok(entry) = entry {
                 let pathbuf = entry.path();
                 let entry_path = pathbuf.as_path();
-                if entry_path.is_file() && entry_path.extension().expect("") == "md" {
+                if entry_path.is_file() && entry_path.extension().ok_or(err)? == "md" {
                     vec.push(pathbuf);
                 } else if entry_path.is_dir() {
                     paths.push_back(entry_path.to_path_buf());
                 // for unknown reason seems to treat symlinks like normal directories :o
                 } else if entry_path.is_symlink() && follow_symlinks {
-                    let dest = entry_path.read_link().expect("Symlink failure");
+                    let dest = entry_path.read_link()?;
                     let symlink_path = dest.as_path();
                     if symlink_path.is_dir() {
                         paths.push_back(dest);
-                    } else if symlink_path.is_file() && symlink_path.extension().expect("") == "md"
+                    } else if symlink_path.is_file() && symlink_path.extension().ok_or(err)? == "md"
                     {
                         vec.push(dest);
                     }
                 }
-                // no symlink support for now
             }
         }
     }
 
-    return vec;
+    return Ok(vec);
 }
 
 async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: String) -> Vec<Node> {
@@ -80,11 +82,19 @@ async fn parse_at_paths(paths: Vec<PathBuf>, processes: usize, parser: String) -
         }
         let output = children.pop_front().expect("").await.expect("");
         let string = String::from_utf8(output.stdout).expect("");
-        let parsed_string = serde_json::from_str(string.as_str()).expect("");
+        let parsed_string: Node = serde_json::from_str(string.as_str()).expect("");
         parsed.push(parsed_string);
     }
     return parsed;
 }
+
+// current bugs:
+// - paths involving . cause a crash
+
+// current feature improvements:
+// - zenkat should act as a server
+//   - supporting queries and outputs
+// - should be able to load multiple trees
 
 #[tokio::main]
 async fn main() {
@@ -92,7 +102,12 @@ async fn main() {
     let mut parser = String::from("target/debug/md-parse");
 
     let args = Args::parse();
-    let path = Path::new(&args.path);
+
+    let mut paths = vec![];
+
+    for path in &args.paths {
+        paths.push(Path::new(path));
+    }
 
     if args.processes > 0 {
         processes = NonZeroUsize::new(args.processes).expect("");
@@ -102,30 +117,32 @@ async fn main() {
         parser = args.parser;
     }
 
-    if !path.try_exists().is_ok_and(|x| x) {
-        println!("Couldn't access path at {}", args.path);
-        return;
-    }
-
     let mut vec: Vec<PathBuf> = Vec::new();
 
-    let pathbuf = path.canonicalize().expect("");
-    let path = pathbuf.as_path();
-    if path.is_file() && path.extension().unwrap() == "md" {
-        vec.push(path.to_path_buf())
-    } else if path.is_dir() {
-        // crawl the directory structure
-        let paths = walk(path, false);
-        vec.extend(paths.into_iter());
+    for path in paths {
+        if !path.try_exists().is_ok_and(|x| x) {
+            println!("Couldn't access path at {}", path.to_str().unwrap());
+            return;
+        }
+
+        let pathbuf = path.canonicalize().expect("");
+        let path = pathbuf.as_path();
+        if path.is_file() && path.extension().unwrap() == "md" {
+            vec.push(path.to_path_buf())
+        } else if path.is_dir() {
+            // crawl the directory structure
+            let paths = walk(path, false).unwrap();
+            vec.extend(paths.into_iter());
+        }
+
+        println!(
+            "Found {} markdown files in {}, parsing with {} processes.",
+            vec.len(),
+            path.to_str().unwrap(),
+            processes
+        );
     }
 
-    println!(
-        "Found {} markdown files in {}, parsing with {} processes.",
-        vec.len(),
-        &args.path,
-        processes
-    );
-
     let parsed = parse_at_paths(vec, processes.into(), parser).await;
-    println!("{:?}", parsed);
+    // println!("{:?}", parsed);
 }

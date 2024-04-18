@@ -22,7 +22,9 @@ fn parse_atx_header(raw: String) -> Option<(String, Node)> {
             break;
         }
 
-        let (prefix, suffix) = unconsumed.split_at(1);
+        let first_char = unconsumed.chars().next().unwrap();
+
+        let (prefix, suffix) = unconsumed.split_at(first_char.len_utf8());
 
         if prefix == "#" {
             buffer.push_str(prefix);
@@ -52,7 +54,9 @@ fn parse_atx_header(raw: String) -> Option<(String, Node)> {
             break;
         }
 
-        let (prefix, suffix) = unconsumed.split_at(1);
+        let first_char = unconsumed.chars().next().unwrap();
+
+        let (prefix, suffix) = unconsumed.split_at(first_char.len_utf8());
 
         if prefix == "\n" {
             break;
@@ -83,7 +87,10 @@ fn parse_paragraph(raw: String) -> Option<(String, Node)> {
             break;
         }
 
-        let (prefix, suffix) = unconsumed.split_at(1);
+        let first_char = unconsumed.chars().next().unwrap();
+
+        let (prefix, suffix) = unconsumed.split_at(first_char.len_utf8());
+
         if prefix == "\n" {
             buffer.push_str(prefix);
         } else {
