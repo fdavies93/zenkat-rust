@@ -139,6 +139,28 @@ impl TreeStore {
     }
 }
 
+impl Node {
+    async fn hydrate(&mut self, parser: String) -> Result<(), std::io::ErrorKind> {
+        if self.block_type != NodeType::DOCUMENT {
+            return Err(std::io::ErrorKind::InvalidInput);
+        }
+
+        let output = Command::new(parser.as_str())
+            .arg(self.data.get("path").unwrap())
+            .output()
+            .await
+            .expect("");
+
+        let parsed_json = String::from_utf8(output.stdout).expect("");
+        let parsed_obj: Node = serde_json::from_str(parsed_json.as_str()).unwrap();
+
+        self.raw = parsed_obj.raw;
+        self.blocks = parsed_obj.blocks;
+
+        return Ok(());
+    }
+}
+
 // current bugs:
 // - paths involving . cause a crash
 
@@ -168,7 +190,9 @@ async fn main() {
 
     let mut docs = store.get_all_documents_mut();
 
-    docs[0].raw = String::from("hello");
+    for doc in docs {
+        doc.hydrate(parser.clone()).await.unwrap();
+    }
 
     println!("{:?}", store.trees);
 }
