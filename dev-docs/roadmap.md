@@ -14,7 +14,7 @@ Fundamental architecture in place. Provide basic input/output functionality. Cor
 
 #### Server
 
-- Must run as a server with defined inputs and outputs
+- Must run as a server with defined inputs and outputs in JSON
 
 - `.` (select child) operator
 - `*` (all) operator
@@ -40,7 +40,6 @@ Fundamental architecture in place. Provide basic input/output functionality. Cor
 ### Bugs
 
 - `parse_at_paths` crashes with paths involving `.`
-- `walk` follows symlinks like normal directories
 
 ### Complete
 
@@ -58,5 +57,6 @@ Fundamental architecture in place. Provide basic input/output functionality. Cor
 #### Bugs
 
 - Parser crashes when characters are not a single byte width (i.e. non-ascii)
+- `walk` follows symlinks like normal directories (resolved in refactoring)
 
 ## Icebox
