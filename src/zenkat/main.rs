@@ -1,6 +1,6 @@
 use async_process::Child;
 use clap::Parser;
-use serde_json::from_str;
+use serde_json::{from_str, to_string_pretty};
 use std::collections::VecDeque;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
@@ -20,6 +20,9 @@ struct Args {
 
     #[arg(long, default_value = "")]
     parser: String,
+
+    #[arg(short, long)]
+    query: Option<String>,
 
     #[arg(long)]
     trees: bool,
@@ -151,6 +154,24 @@ impl TreeStore {
             }
         }
     }
+
+    fn query(&mut self, query: &String) -> Vec<&Node> {
+        let mut collected = vec![];
+        let mut queue = VecDeque::new();
+        for tree in self.trees.iter() {
+            queue.push_back(tree);
+        }
+        while queue.len() > 0 {
+            let next = queue.pop_front().unwrap();
+            if next.type_as_string() == query.as_str() {
+                collected.push(next)
+            }
+            for child in &next.blocks {
+                queue.push_back(child);
+            }
+        }
+        return collected;
+    }
 }
 
 impl Node {
@@ -172,6 +193,15 @@ impl Node {
         self.blocks = parsed_obj.blocks;
 
         return Ok(());
+    }
+
+    fn type_as_string(&self) -> &str {
+        match self.block_type {
+            NodeType::DIRECTORY => "directory",
+            NodeType::HEADER => "header",
+            NodeType::DOCUMENT => "document",
+            NodeType::PARAGRAPH => "paragraph",
+        }
     }
 }
 
@@ -246,11 +276,14 @@ async fn main() {
         let docs = store.get_all_documents_mut();
         hydrate_docs(docs, processes.into(), &parser).await;
     }
+    if args.query.is_some() {
+        let collected = store.query(&args.query.unwrap());
+        let as_json = serde_json::to_string_pretty(&collected).unwrap();
+        println!("{}", as_json);
+    }
     if args.trees {
         for tree in store.trees {
             println!("{}", tree.data.get("path").unwrap());
         }
     }
-
-    // println!("{:?}", store.trees);
 }
