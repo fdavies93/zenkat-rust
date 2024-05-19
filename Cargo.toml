@@ -13,6 +13,7 @@ nom = "7.1.3"
 serde = {version="1.0.197", features=["derive"]}
 serde_json = "1.0.115"
 tokio = { version ="1.37.0", features = ["full"]}
+uuid = { version = "1.8.0", features = ["v4"]}
 
 [[bin]]
 name = "zenkat"

@@ -6,6 +6,7 @@ use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::thread;
 use tokio::process::Command;
+use uuid::Uuid;
 
 #[path = "../common/node.rs"]
 mod common;

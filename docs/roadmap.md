@@ -1,6 +1,6 @@
 # Zenkat Roadmap
 
-## Working Version 0.1
+## Version 0.1
 
 ### Goals
 
@@ -20,6 +20,8 @@ Fundamental architecture in place. Provide basic input/output functionality. Cor
 - `*` (all) operator
 - `**` (traverse) operator
 - `[]` (data selector) operator
+
+**Do we actually need a query language, or would it be simpler to just pass queries in as JSON?**
 
 #### Block Parsing
 
