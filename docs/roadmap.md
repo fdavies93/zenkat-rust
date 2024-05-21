@@ -6,7 +6,7 @@
 
 Fundamental architecture in place. Provide basic input/output functionality. Correctly parse simple markdown documents and provide way to explore or visualise parse tree.
 
-### Uncommitments
+### Won't Do
 
 - HTML parsing
 

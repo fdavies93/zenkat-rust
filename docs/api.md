@@ -34,18 +34,59 @@ Queries to locate nodes or sets of nodes are given in a format similar to CSS se
 
 ## API Details
 
-### JSON Format
-
 ### Operations
 
 `load_zk` loads a new zk into memory from a given file path. This doesn't load the contents of files to increase flexibility.
 
+```json
+{
+  "operation": "load_zk",
+  "path": "./my_zk"
+}
+```
+
 `unload_zk` unloads a zk with the given path or id. It will also unload any documents that are part of the zk.
 
-`load_docs` loads all documents which match the path selector. **This is the preferred way to load documents because it uses concurrency.** The most common use is `load_docs(document)` (i.e. load all).
+```json
+{
+  "operation": "load_zk",
+  "path": "./my_zk",
+  "id": "d46beac6-9b59-40e5-9758-d80855dff8ac"
+}
+```
+
+`load_docs` loads all documents which match the query. **This is the preferred way to load documents because it uses concurrency.** The most common use should be `load_docs(document)` (i.e. load all).
+
+```json
+{
+  "operation": "load_docs",
+  "query": "document"
+} 
+```
 
 `load_doc` loads a single document by id. **This doesn't use concurrency.**
 
-`unload_docs` drops documents from memory.
+```json
+{
+  "operation": "load_doc",
+  "id": "d46beac6-9b59-40e5-9758-d80855dff8ac"
+}
+```
 
-`select` queries the store and retrieves matching nodes.
+`unload_docs` drops documents from memory according to a query.
+
+```json
+{
+  "operation": "unload_docs",
+  "query": "document[id=d46bc],document[id=d3531]"
+}
+```
+
+`select` queries the store and returns matching nodes.
+
+```json
+{
+  "operation": "select",
+  "query": "document[id=d46bc],document[id=d3531]"
+}
+```
