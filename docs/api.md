@@ -14,15 +14,17 @@ Zenkat has one POST route: `query`. This takes requests in the same format as th
 
 ## Entity Types
 
+**The store** is the top-level data structure which holds all trees and to which queries are directed.
+
 **ZKs** are roots of a parsing tree, located at a given filesystem path. Typically they are directories or symlinks to directories.
 
 **Documents** are specific `.md` files (and others may be allowable in future).
 
-**Headers, paragraphs, lists, etc** are as defined in Markdown specifications. Note that ZenKat tends to prefer combining element types (headers, list types) for the sake of making querying straightforward; therefore we prefer the abstract `header` over the more specific `h1`, `h2`, et al.
+**Headers, paragraphs, lists, etc** are as defined in Markdown specifications. Note that ZenKat tends to prefer combining element types (e.g. ATX and Setext style headers) for the sake of making querying straightforward; therefore we prefer the abstract `header` over the more specific `h1`, `h2`, et al.
 
-## Path Format
+## Query Format
 
-Paths to locate nodes or sets of nodes are given in a format similar to CSS selectors.
+Queries to locate nodes or sets of nodes are given in a format similar to CSS selectors.
 
 `header` selects all headers.
 
@@ -36,12 +38,14 @@ Paths to locate nodes or sets of nodes are given in a format similar to CSS sele
 
 ### Operations
 
-`load_zk` loads a new vault into memory from a given file path.
+`load_zk` loads a new zk into memory from a given file path. This doesn't load the contents of files to increase flexibility.
 
-`unload_zk` unloads a vault with the given path or id.
+`unload_zk` unloads a zk with the given path or id. It will also unload any documents that are part of the zk.
 
-`load_docs` loads all documents which match the path selector. **This is the preferred way to load documents because it uses concurrency.** The most common use is `load_docs(zk > ** > document)` (i.e. load all).
+`load_docs` loads all documents which match the path selector. **This is the preferred way to load documents because it uses concurrency.** The most common use is `load_docs(document)` (i.e. load all).
 
 `load_doc` loads a single document by id. **This doesn't use concurrency.**
 
 `unload_docs` drops documents from memory.
+
+`select` queries the store and retrieves matching nodes.
