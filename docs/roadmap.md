@@ -12,32 +12,52 @@ Fundamental architecture in place. Provide basic input/output functionality. Cor
 
 ### Commitments
 
+#### CLI Tool
+
+- Equivalent to `zenkat list` must work and display some basic information such as word count.
+- `zenkat outline` should work *better* than in previous version, since it's about manipulating ASTs.
+
 #### Server
 
 - Must run as a server with defined inputs and outputs in JSON
+- Parse queries as JSON and return output
+  - load_zk
+  - unload_zk
+  - load_docs
+  - load_doc
+  - unload_docs
+  - select
+- Query parsing
+  - Select by node type, `header`
+  - Select by data attribute, `header[rank=1]`
+  - Descendent operator, `document[id=9001] header`
+  - Child operator, `document[id=9001] list > list_item`
 
-- `.` (select child) operator
-- `*` (all) operator
-- `**` (traverse) operator
-- `[]` (data selector) operator
+#### Parser
 
-**Do we actually need a query language, or would it be simpler to just pass queries in as JSON?**
+- ID should be in data so it's searchable
 
-#### Block Parsing
+- Block Parsing
+  - Horizontal rules (***, ---, ___)
+  - Setext headings
+  - Indented code blocks
+  - Fenced code blocks
+  - Link reference definitions (may delay)
 
-- Horizontal rules (***, ---, ___)
-- Setext headings (low)
-- Indented code blocks (low)
-- Fenced code blocks
-- Link reference definitions (low)
+- Container parsing
+  - Block quotes
+  - Lists
+    - List items
+      - Ordered list items `1[.)]`
+      - Unordered list items `[*-+]`
 
-#### Inline Parsing
-- Emphasis and strong emphasis
-- Links
-- Backslash escapes
-- Inline code
-- Image embedding
-- Hard line breaks (low)
+- Inline parsing
+  - Emphasis and strong emphasis
+  - Links
+  - Backslash escapes
+  - Inline code
+  - Image embedding
+  - Hard line breaks (low)
 
 ### Bugs
 
