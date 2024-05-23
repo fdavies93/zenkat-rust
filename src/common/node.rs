@@ -33,4 +33,13 @@ impl Node {
             data: HashMap::new(),
         }
     }
+
+    pub fn type_as_string(&self) -> &str {
+        match self.block_type {
+            NodeType::DIRECTORY => "directory",
+            NodeType::HEADER => "header",
+            NodeType::DOCUMENT => "document",
+            NodeType::PARAGRAPH => "paragraph",
+        }
+    }
 }

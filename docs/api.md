@@ -24,7 +24,7 @@ Zenkat has one POST route: `query`. This takes requests in the same format as th
 
 ## Query Format
 
-Queries to locate nodes or sets of nodes are given in a format similar to CSS selectors.
+Queries to locate nodes or sets of nodes are given as CSS selectors.
 
 `header` selects all headers.
 
