@@ -8,6 +8,8 @@ mod common;
 mod tree_store;
 use tree_store::TreeStore;
 
+mod query_parser;
+
 #[derive(Parser, Debug)]
 struct Args {
     paths: Option<Vec<String>>,
