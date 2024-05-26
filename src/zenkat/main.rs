@@ -12,7 +12,8 @@ mod query_parser;
 
 #[derive(Parser, Debug)]
 struct Args {
-    paths: Option<Vec<String>>,
+    #[arg(short, long)]
+    zk: Vec<String>,
 
     #[arg(short, long, default_value = "0")]
     processes: usize,
@@ -20,14 +21,8 @@ struct Args {
     #[arg(long, default_value = "")]
     parser: String,
 
-    #[arg(short, long)]
-    query: Option<String>,
-
     #[arg(long)]
-    trees: bool,
-
-    #[arg(long)]
-    load_all: bool,
+    follow_symlinks: bool,
 }
 
 #[tokio::main]
@@ -45,22 +40,22 @@ async fn main() {
         parser = args.parser;
     }
 
-    let paths = args.paths.unwrap_or(vec![]);
+    let store = TreeStore::load(args.zk, args.follow_symlinks);
 
-    let mut store = TreeStore::load(paths, true);
+    // start server
 
-    if args.load_all {
-        let docs = store.get_all_documents_mut();
-        TreeStore::hydrate_docs(docs, processes.into(), &parser).await;
-    }
-    if args.query.is_some() {
-        let collected = store.query(&args.query.unwrap());
-        let as_json = serde_json::to_string_pretty(&collected).unwrap();
-        println!("{}", as_json);
-    }
-    if args.trees {
-        for tree in store.get_trees() {
-            println!("{}", tree.data.get("path").unwrap());
-        }
-    }
+    // if args.load_all {
+    //     let docs = store.get_all_documents_mut();
+    //     TreeStore::hydrate_docs(docs, processes.into(), &parser).await;
+    // }
+    // if args.query.is_some() {
+    //     let collected = store.query(&args.query.unwrap());
+    //     let as_json = serde_json::to_string_pretty(&collected).unwrap();
+    //     println!("{}", as_json);
+    // }
+    // if args.trees {
+    //     for tree in store.get_trees() {
+    //         println!("{}", tree.data.get("path").unwrap());
+    //     }
+    // }
 }

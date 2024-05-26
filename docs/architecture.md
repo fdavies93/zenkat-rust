@@ -22,7 +22,7 @@ Ideally implemented in a compiled language for speed, but less essential than th
 
 ## Clients
 
-These should access the server to perform operations. Can be written in any language.
+These should access the server to perform operations. Can be written in any language (but default utilities are written in Rust to reuse common definitions).
 
 Examples:
 - Data explorer (basically the same as zenkat-python)
