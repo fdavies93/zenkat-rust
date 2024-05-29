@@ -6,6 +6,7 @@ use tokio;
 mod common;
 
 use common::zk_request::{ZkRequest, ZkRequestType};
+use common::zk_response::ZkResponse;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -49,7 +50,8 @@ async fn main() {
 
             match res {
                 Ok(res) => {
-                    println!("{:?}", res)
+                    let body = res.json::<ZkResponse>().await.unwrap();
+                    println!("{:?}", body)
                 }
                 Err(e) => {
                     println!("{:?}", e)
