@@ -17,7 +17,7 @@ use axum::{
     Json, Router,
 };
 
-use common::zk_request::ZkRequest;
+use common::zk_request::{ZkRequest, ZkRequestType};
 use common::zk_response::ZkResponse;
 use std::future::Future;
 
@@ -59,13 +59,18 @@ async fn handle(
     Json(payload): Json<ZkRequest>,
 ) -> (StatusCode, Json<ZkResponse>) {
     let res = ZkResponse::new();
+    state.parser.trigger(&payload);
     println!("{:?}", payload);
-    state.parser.test();
     return (StatusCode::OK, Json(res));
 }
 
 struct AppState {
     parser: QueryParser,
+    store: TreeStore,
+}
+
+fn load_zk() {
+    println!("Fake ZK load!");
 }
 
 #[tokio::main]
@@ -89,10 +94,12 @@ async fn main() {
 
     println!("Starting Zenkat HTTP server on {}", addr);
 
-    let query_parser = QueryParser::new();
+    let mut query_parser = QueryParser::new();
+    query_parser.bind(ZkRequestType::ZkLoad, load_zk);
 
     let state = Arc::new(AppState {
         parser: query_parser,
+        store: store,
     });
 
     // setup web server with Axum
