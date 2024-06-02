@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::future::IntoFuture;
 use std::num::NonZeroUsize;
 use std::thread;
 
@@ -14,6 +15,7 @@ use common::zk_request::ZkRequest;
 use common::zk_response::ZkResponse;
 
 mod query_parser;
+use query_parser::QueryParser;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -36,12 +38,29 @@ struct Args {
     port: String,
 }
 
-async fn handle_query(Json(payload): Json<ZkRequest>) -> (StatusCode, Json<ZkResponse>) {
+async fn handle_request(Json(payload): Json<ZkRequest>) -> (StatusCode, Json<ZkResponse>) {
     let res = ZkResponse::new();
 
     println!("{:?}", payload);
 
     return (StatusCode::OK, Json(res));
+}
+
+fn make_request_handler(
+    parser: &QueryParser,
+) -> Box<dyn Fn(Json<ZkRequest>) -> (StatusCode, Json<ZkResponse>)> {
+    // using strategy from 19.4 in Rust book
+    Box::new(
+        |Json(payload): Json<ZkRequest>| -> (StatusCode, Json<ZkResponse>) {
+            let res = ZkResponse::new();
+
+            parser.parse_query(payload);
+
+            println!("{:?}", payload);
+
+            return (StatusCode::OK, Json(res));
+        },
+    )
 }
 
 #[tokio::main]
@@ -64,8 +83,13 @@ async fn main() {
     let addr = vec![args.interface, ":".into(), args.port.into()].join("");
 
     println!("Starting Zenkat HTTP server on {}", addr);
+
+    let parser = QueryParser::new();
+
+    let handler = make_request_handler(&parser);
+
     // setup web server with Axum
-    let app = Router::new().route("/", post(handle_query));
+    let app = Router::new().route("/", post(handler));
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
