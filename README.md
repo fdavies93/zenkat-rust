@@ -1,21 +1,44 @@
 # ZenKat
 *(Rocket Powered Crab Edition)*
 
-[Find design notes here](dev-docs/design.md).
+*We haven't reached v0.1 release, so this is basically a developer preview.*
 
 ## Dependencies
 
 - clap for argument parsing
 - crossterm for rendering to terminal
 - tokio for async support
+- reqwest for making requests
+- axum for web server handling
+- serde / serde_json for json parsing
 
 ## Architecture
 
-Zenkat-rs is split into two processes: the **controller** and the **parser**. Currently the parser is in `/src/md-parse` and the controller in `/src/zenkat`.
+Zenkat ships as a *collection* of utilities. Once we reach a v0.1 release these should be neatly wrapped as the `zenkat` utility, in a similar way to how `apt` wraps `apt-get`, `apt-cache` and others.
 
-When you give ZenKat a command, it locates all Markdown files in a given directory. It then spawns instances of the parser and collects their output, then processes the output to form the data model.
+This simplifies parallelising parsing, but also has benefits for code structure.
 
-This allows the parser to run asynchronously across many files at once. It also means that once the data transfer format between the controller and the parser becomes more stable, it should be possible to provide parser implementations which are written in numerous different stacks.
+The following are the utilities targeted for the v0.1 release.
+
+### zenkat
+
+A wrapper for the other utilities in the bundle designed to make the apps easier to use.
+
+### zk-serve
+
+The main server utility for Zenkat. Allows for querying and manipulation of documents in one or more ZKs / vaults.
+
+For v0.1 release this will be a HTTP server taking JSON requests, but we'd like to allow other I/O methods such as LSP-mode in the future.
+
+### zk-cmd
+
+A CLI client utility which allows testing the capabilities of `zk-serve` using the same interface as other client utilities. This should be considered similar to the `mysql` client and other database interfaces.
+
+### md-parse
+
+The main parser for Zenkat. Takes a **single** markdown document and parses it into a n-tree structure.
+
+For v0.1 the goal is to support basic Markdown features listed in [CommonMark](https://commonmark.org/), although not to perfectly implement the CommonMark spec.
 
 ## FAQs
 
