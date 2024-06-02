@@ -1,7 +1,8 @@
+use axum::extract::State;
 use clap::Parser;
-use std::future::IntoFuture;
-use std::num::NonZeroUsize;
+use std::pin::Pin;
 use std::thread;
+use std::{num::NonZeroUsize, sync::Arc};
 
 #[path = "../common.rs"]
 mod common;
@@ -9,10 +10,16 @@ mod common;
 mod tree_store;
 use tree_store::TreeStore;
 
-use axum::{http::StatusCode, routing::post, Json, Router};
+use axum::{
+    debug_handler,
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
 
 use common::zk_request::ZkRequest;
 use common::zk_response::ZkResponse;
+use std::future::Future;
 
 mod query_parser;
 use query_parser::QueryParser;
@@ -46,21 +53,19 @@ async fn handle_request(Json(payload): Json<ZkRequest>) -> (StatusCode, Json<ZkR
     return (StatusCode::OK, Json(res));
 }
 
-fn make_request_handler(
-    parser: &QueryParser,
-) -> Box<dyn Fn(Json<ZkRequest>) -> (StatusCode, Json<ZkResponse>)> {
-    // using strategy from 19.4 in Rust book
-    Box::new(
-        |Json(payload): Json<ZkRequest>| -> (StatusCode, Json<ZkResponse>) {
-            let res = ZkResponse::new();
+#[debug_handler]
+async fn handle(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<ZkRequest>,
+) -> (StatusCode, Json<ZkResponse>) {
+    let res = ZkResponse::new();
+    println!("{:?}", payload);
+    state.parser.test();
+    return (StatusCode::OK, Json(res));
+}
 
-            parser.parse_query(payload);
-
-            println!("{:?}", payload);
-
-            return (StatusCode::OK, Json(res));
-        },
-    )
+struct AppState {
+    parser: QueryParser,
 }
 
 #[tokio::main]
@@ -84,12 +89,14 @@ async fn main() {
 
     println!("Starting Zenkat HTTP server on {}", addr);
 
-    let parser = QueryParser::new();
+    let query_parser = QueryParser::new();
 
-    let handler = make_request_handler(&parser);
+    let state = Arc::new(AppState {
+        parser: query_parser,
+    });
 
     // setup web server with Axum
-    let app = Router::new().route("/", post(handler));
+    let app = Router::new().route("/", post(handle)).with_state(state);
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();

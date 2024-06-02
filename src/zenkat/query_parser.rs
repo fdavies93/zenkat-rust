@@ -21,4 +21,8 @@ impl QueryParser {
     pub fn unbind(&mut self, op_type: &str) {
         self.ops.remove(op_type);
     }
+
+    pub fn test(&self) {
+        println!("Test!");
+    }
 }
