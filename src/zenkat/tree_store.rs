@@ -46,9 +46,11 @@ impl TreeStore {
         return &self.trees;
     }
 
-    pub fn load(paths: Vec<String>, traverse_symbolic: bool) -> TreeStore {
-        let mut store: TreeStore = TreeStore { trees: vec![] };
+    pub fn new() -> TreeStore {
+        return TreeStore { trees: vec![] };
+    }
 
+    pub fn load(&mut self, paths: Vec<String>, traverse_symbolic: bool) {
         for path_str in paths {
             let path = Path::new(&path_str);
 
@@ -63,11 +65,9 @@ impl TreeStore {
             let tree_option = TreeStore::load_tree(path, traverse_symbolic);
 
             if tree_option.is_some() {
-                store.trees.push(tree_option.unwrap());
+                self.trees.push(tree_option.unwrap());
             }
         }
-
-        return store;
     }
 
     // likely needs to work on references

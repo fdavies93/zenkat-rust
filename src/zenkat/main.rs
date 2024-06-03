@@ -81,8 +81,15 @@ struct AppState {
     store: RwLock<TreeStore>,
 }
 
-fn load_zk(request: &ZkRequest, state: &mut TreeStore) -> Result<ZkResponse, &'static str> {
+fn load_zk(request: &ZkRequest, store: &mut TreeStore) -> Result<ZkResponse, &'static str> {
     println!("Fake ZK load!");
+
+    let path = request.data.get("load_zk").unwrap();
+
+    store.load(vec![path.clone()], true);
+
+    println!("{:?}", store.get_trees());
+
     return Result::Ok(ZkResponse::new());
 }
 
@@ -101,7 +108,7 @@ async fn main() {
         parser = args.parser;
     }
 
-    let store = TreeStore::load(args.zk, args.follow_symlinks);
+    let store = TreeStore::new();
 
     let addr = vec![args.interface, ":".into(), args.port.into()].join("");
 
