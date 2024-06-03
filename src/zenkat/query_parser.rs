@@ -1,8 +1,14 @@
 use std::collections::HashMap;
 
-use crate::common::zk_request::{ZkRequest, ZkRequestType};
+use crate::{
+    common::{
+        zk_request::{ZkRequest, ZkRequestType},
+        zk_response::ZkResponse,
+    },
+    tree_store::TreeStore,
+};
 
-type QueryFn = fn() -> ();
+type QueryFn = fn(&ZkRequest, &mut TreeStore) -> Result<ZkResponse, &'static str>;
 
 pub struct QueryParser {
     ops: HashMap<ZkRequestType, QueryFn>,
@@ -16,9 +22,13 @@ impl QueryParser {
         return qp;
     }
 
-    pub fn trigger(&self, request: &ZkRequest) {
+    pub fn trigger(
+        &self,
+        request: &ZkRequest,
+        state: &mut TreeStore,
+    ) -> Result<ZkResponse, &'static str> {
         let fn_ptr = self.ops.get(&request.request_type).unwrap();
-        fn_ptr();
+        fn_ptr(request, state)
     }
 
     pub fn bind(&mut self, op_type: ZkRequestType, to_call: QueryFn) -> () {

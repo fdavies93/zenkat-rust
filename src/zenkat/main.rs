@@ -1,8 +1,12 @@
 use axum::extract::State;
 use clap::Parser;
+use std::borrow::BorrowMut;
+use std::cell::{Cell, RefCell};
 use std::pin::Pin;
+use std::sync::RwLock;
 use std::thread;
 use std::{num::NonZeroUsize, sync::Arc};
+use tokio::sync::Mutex;
 
 #[path = "../common.rs"]
 mod common;
@@ -59,18 +63,27 @@ async fn handle(
     Json(payload): Json<ZkRequest>,
 ) -> (StatusCode, Json<ZkResponse>) {
     let res = ZkResponse::new();
-    state.parser.trigger(&payload);
+
+    let parser = &state.parser;
+
+    let mut store = state.store.write().unwrap();
+
+    // this causes an indefinite hang
+    // since it needs to get a read for parser and a write for store
+    parser.trigger(&payload, &mut store);
+
     println!("{:?}", payload);
     return (StatusCode::OK, Json(res));
 }
 
 struct AppState {
     parser: QueryParser,
-    store: TreeStore,
+    store: RwLock<TreeStore>,
 }
 
-fn load_zk() {
+fn load_zk(request: &ZkRequest, state: &mut TreeStore) -> Result<ZkResponse, &'static str> {
     println!("Fake ZK load!");
+    return Result::Ok(ZkResponse::new());
 }
 
 #[tokio::main]
@@ -99,7 +112,7 @@ async fn main() {
 
     let state = Arc::new(AppState {
         parser: query_parser,
-        store: store,
+        store: RwLock::new(store),
     });
 
     // setup web server with Axum
