@@ -45,7 +45,7 @@ async fn main() {
     match &args.cmd {
         Command::LoadZk { path } => {
             let mut request = ZkRequest::new(ZkRequestType::ZkLoad);
-            request.data.insert("load_zk".to_string(), path.clone());
+            request.data.insert("path".to_string(), path.clone());
             let res = client.post(server_uri).json(&request).send().await;
 
             match res {

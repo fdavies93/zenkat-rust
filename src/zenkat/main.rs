@@ -1,18 +1,17 @@
 use axum::extract::State;
 use clap::Parser;
-use std::borrow::BorrowMut;
-use std::cell::{Cell, RefCell};
-use std::pin::Pin;
 use std::sync::RwLock;
 use std::thread;
 use std::{num::NonZeroUsize, sync::Arc};
-use tokio::sync::Mutex;
 
 #[path = "../common.rs"]
 mod common;
 
 mod tree_store;
 use tree_store::TreeStore;
+
+mod app_state;
+use app_state::{AppConfig, AppState};
 
 use axum::{
     debug_handler,
@@ -23,7 +22,6 @@ use axum::{
 
 use common::zk_request::{ZkRequest, ZkRequestType};
 use common::zk_response::ZkResponse;
-use std::future::Future;
 
 mod query_parser;
 use query_parser::QueryParser;
@@ -66,29 +64,22 @@ async fn handle(
 
     let parser = &state.parser;
 
-    let mut store = state.store.write().unwrap();
-
     // this causes an indefinite hang
     // since it needs to get a read for parser and a write for store
-    parser.trigger(&payload, &mut store);
+    parser.trigger(&payload, &state);
 
     println!("{:?}", payload);
     return (StatusCode::OK, Json(res));
 }
 
-struct AppState {
-    parser: QueryParser,
-    store: RwLock<TreeStore>,
-}
+fn load_zk(request: &ZkRequest, state: &Arc<AppState>) -> Result<ZkResponse, &'static str> {
+    let path = request.data.get("path").unwrap();
 
-fn load_zk(request: &ZkRequest, store: &mut TreeStore) -> Result<ZkResponse, &'static str> {
-    println!("Fake ZK load!");
-
-    let path = request.data.get("load_zk").unwrap();
+    let mut store = state.store.write().unwrap();
 
     store.load(vec![path.clone()], true);
 
-    println!("{:?}", store.get_trees());
+    println!("Loading tree at {}.", path);
 
     return Result::Ok(ZkResponse::new());
 }
@@ -114,12 +105,20 @@ async fn main() {
 
     println!("Starting Zenkat HTTP server on {}", addr);
 
+    let config = AppConfig {
+        follow_symlinks: args.follow_symlinks,
+        doc_parser: parser,
+        processes,
+    };
+
     let mut query_parser = QueryParser::new();
     query_parser.bind(ZkRequestType::ZkLoad, load_zk);
 
+    // the server config should also be held in here, immutably
     let state = Arc::new(AppState {
         parser: query_parser,
         store: RwLock::new(store),
+        app_config: config,
     });
 
     // setup web server with Axum
