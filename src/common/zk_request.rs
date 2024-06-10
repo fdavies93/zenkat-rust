@@ -4,6 +4,8 @@ use std::collections::HashMap;
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Eq, Hash)]
 pub enum ZkRequestType {
     ZkLoad,
+    LoadDocs,
+    Query,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]

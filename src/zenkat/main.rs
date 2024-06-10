@@ -2,7 +2,7 @@ use axum::extract::State;
 use clap::Parser;
 use std::sync::RwLock;
 use std::thread;
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{num::NonZeroUsize, pin::Pin, sync::Arc};
 
 #[path = "../common.rs"]
 mod common;
@@ -21,10 +21,10 @@ use axum::{
 };
 
 use common::zk_request::{ZkRequest, ZkRequestType};
-use common::zk_response::ZkResponse;
+use common::zk_response::{ZkResponse, ZkResponseType};
 
 mod query_parser;
-use query_parser::QueryParser;
+use query_parser::{QueryParser, ZkResponseType};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -47,14 +47,6 @@ struct Args {
     port: String,
 }
 
-async fn handle_request(Json(payload): Json<ZkRequest>) -> (StatusCode, Json<ZkResponse>) {
-    let res = ZkResponse::new();
-
-    println!("{:?}", payload);
-
-    return (StatusCode::OK, Json(res));
-}
-
 #[debug_handler]
 async fn handle(
     State(state): State<Arc<AppState>>,
@@ -72,7 +64,7 @@ async fn handle(
     return (StatusCode::OK, Json(res));
 }
 
-fn load_zk(request: &ZkRequest, state: &Arc<AppState>) -> Result<ZkResponse, &'static str> {
+fn load_zk(request: &ZkRequest, state: &Arc<AppState>) -> ZkResponseType {
     let path = request.data.get("path").unwrap();
 
     let mut store = state.store.write().unwrap();
@@ -81,7 +73,40 @@ fn load_zk(request: &ZkRequest, state: &Arc<AppState>) -> Result<ZkResponse, &'s
 
     println!("Loading tree at {}.", path);
 
-    return Result::Ok(ZkResponse::new());
+    return Box::pin(async { Result::Ok(ZkResponse::new()) });
+
+    // return Pin::new(Box::pin(async { ZkResponse::new() }));
+    //return Pin::new(Result::Ok(ZkResponse::new()));
+}
+
+fn query(request: &ZkRequest, state: &Arc<AppState>) -> Result<ZkResponse, &'static str> {
+    let mut store = state.store.write().unwrap();
+
+    let results = store.query(request.data.get("query").unwrap());
+
+    // could make ZkResponse a trait for better serialisation
+    let mut res = ZkResponse::new();
+    res.data
+        .insert("nodes".into(), serde_json::to_string(&results).unwrap());
+
+    return Result::Ok(res);
+}
+
+async fn load_docs(request: &ZkRequest, state: &Arc<AppState>) -> ZkResponseType {
+    let mut store = state.store.write().unwrap();
+
+    let config = state.app_config.processes;
+
+    return Box::pin(async {
+        TreeStore::hydrate_docs(
+            store.get_all_documents_mut(),
+            state.app_config.processes.into(),
+            &state.app_config.doc_parser,
+        )
+        .await;
+
+        return Result::Ok(ZkResponse::new());
+    });
 }
 
 #[tokio::main]
@@ -113,6 +138,8 @@ async fn main() {
 
     let mut query_parser = QueryParser::new();
     query_parser.bind(ZkRequestType::ZkLoad, load_zk);
+    query_parser.bind(ZkRequestType::LoadDocs, load_docs);
+    query_parser.bind(ZkRequestType::Query, query);
 
     // the server config should also be held in here, immutably
     let state = Arc::new(AppState {
