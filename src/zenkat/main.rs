@@ -92,15 +92,21 @@ fn query(request: &ZkRequest, state: &Arc<AppState>) -> Result<ZkResponse, &'sta
     return Result::Ok(res);
 }
 
-async fn load_docs(request: &ZkRequest, state: &Arc<AppState>) -> ZkResponseType {
+// take the appState
+// extract a reference to store
+// wait for the docs to be hydrated
+// update the docs within asynchronously
+
+fn load_docs(request: &ZkRequest, state: Arc<AppState>) -> ZkResponseType {
     let mut store = state.store.write().unwrap();
-
-    let config = state.app_config.processes;
-
-    return Box::pin(async {
+    return Box::pin(async move {
         TreeStore::hydrate_docs(
+            // this line is the problem
+            // it modifies the documents that were passed in - asynchronously
+            // therefore it's impossible for the borrow checker to know what's happening - this is inherently unsafe
+            // instead we should try preparing changes to in-memory docs in a async-safe queue
             store.get_all_documents_mut(),
-            state.app_config.processes.into(),
+            &state.app_config.processes,
             &state.app_config.doc_parser,
         )
         .await;

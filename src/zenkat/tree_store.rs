@@ -1,5 +1,6 @@
 use crate::common::node::{Node, NodeType};
 use std::collections::VecDeque;
+use std::num::NonZeroUsize;
 use std::path::Path;
 use tokio::process::Command;
 
@@ -133,7 +134,7 @@ impl TreeStore {
         return Ok(());
     }
 
-    pub async fn hydrate_docs(docs: Vec<&mut Node>, processes: usize, parser: &String) {
+    pub async fn hydrate_docs(docs: Vec<&mut Node>, processes: &NonZeroUsize, parser: &String) {
         let mut children: VecDeque<_> = VecDeque::new();
         let mut pending_doc: VecDeque<&mut Node> = VecDeque::new();
         let mut remaining_docs: Vec<&mut Node> = vec![];
@@ -147,7 +148,7 @@ impl TreeStore {
                 break;
             }
             loop {
-                if children.len() == processes || remaining_docs.len() == 0 {
+                if children.len() == processes.get() || remaining_docs.len() == 0 {
                     break;
                 }
                 let next_doc = remaining_docs.pop().expect("");
