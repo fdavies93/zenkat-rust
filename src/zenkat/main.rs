@@ -67,7 +67,7 @@ async fn handle(
 fn load_zk(request: &ZkRequest, state: &Arc<AppState>) -> ZkResponseType {
     let path = request.data.get("path").unwrap();
 
-    let mut store = state.store.write().unwrap();
+    let mut store = state.working_store;
 
     store.load(vec![path.clone()], true);
 
@@ -79,7 +79,7 @@ fn load_zk(request: &ZkRequest, state: &Arc<AppState>) -> ZkResponseType {
     //return Pin::new(Result::Ok(ZkResponse::new()));
 }
 
-fn query(request: &ZkRequest, state: &Arc<AppState>) -> Result<ZkResponse, &'static str> {
+fn query(request: &ZkRequest, state: AppState) -> Result<ZkResponse, &'static str> {
     let mut store = state.store.write().unwrap();
 
     let results = store.query(request.data.get("query").unwrap());
@@ -142,6 +142,7 @@ async fn main() {
         processes,
     };
 
+    // this pattern was a bad plan
     let mut query_parser = QueryParser::new();
     query_parser.bind(ZkRequestType::ZkLoad, load_zk);
     query_parser.bind(ZkRequestType::LoadDocs, load_docs);
@@ -150,8 +151,8 @@ async fn main() {
     // the server config should also be held in here, immutably
     let state = Arc::new(AppState {
         parser: query_parser,
-        store: RwLock::new(store),
         app_config: config,
+        working_store: store.clone(),
     });
 
     // setup web server with Axum

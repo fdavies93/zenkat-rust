@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use tokio::process::Command;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TreeStore {
     trees: Vec<Node>,
 }
@@ -138,6 +138,50 @@ impl TreeStore {
         let mut children: VecDeque<_> = VecDeque::new();
         let mut pending_doc: VecDeque<&mut Node> = VecDeque::new();
         let mut remaining_docs: Vec<&mut Node> = vec![];
+
+        for doc in docs {
+            remaining_docs.push(doc);
+        }
+
+        loop {
+            if remaining_docs.len() == 0 && children.len() == 0 {
+                break;
+            }
+            loop {
+                if children.len() == processes.get() || remaining_docs.len() == 0 {
+                    break;
+                }
+                let next_doc = remaining_docs.pop().expect("");
+
+                let parser_clone = parser.clone();
+                let next_doc_path = next_doc.data.get("path").unwrap().clone();
+
+                pending_doc.push_back(next_doc);
+
+                let child = tokio::spawn(Command::new(parser_clone).arg(next_doc_path).output());
+
+                children.push_back(child);
+            }
+            let output = children.pop_front().unwrap().await.unwrap().unwrap();
+
+            let parsed_json = String::from_utf8(output.stdout).expect("");
+            let parsed_obj: Node = serde_json::from_str(parsed_json.as_str()).unwrap();
+
+            let finished_doc = pending_doc.pop_front().unwrap();
+
+            finished_doc.blocks = parsed_obj.blocks;
+            finished_doc.raw = parsed_obj.raw;
+        }
+    }
+
+    pub async fn hydrate_docs_to_deltas(
+        docs: Vec<Node>,
+        processes: &NonZeroUsize,
+        parser: &String,
+    ) -> Option<NodeDelta> {
+        let mut children: VecDeque<_> = VecDeque::new();
+        let mut pending_doc: VecDeque<&mut Node> = VecDeque::new();
+        let mut remaining_docs: Vec<Node> = vec![];
 
         for doc in docs {
             remaining_docs.push(doc);

@@ -13,6 +13,19 @@ pub enum NodeType {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub enum NodeDeltaOperation {
+    APPEND_AS_CHILD,
+    DROP,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub struct NodeDelta {
+    pub source_id: String,
+    pub op: NodeDeltaOperation,
+    pub payload: Node,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Node {
     pub id: String,
     pub raw: String,
