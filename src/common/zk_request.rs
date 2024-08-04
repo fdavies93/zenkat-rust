@@ -23,3 +23,8 @@ impl ZkRequest {
         return request;
     }
 }
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub struct ZkQueryRequest {
+    pub query_string: String,
+}

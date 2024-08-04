@@ -82,16 +82,6 @@ def post_tree_query():
     # query
     return ""
 
-
-@app.route("/tree/<name>/node", methods=["GET"])
-def list_nodes():
-    # list all the nodes that are loaded in this tree
-    # with their IDs or some other abbreviated form
-    # could return error if tree not loaded, or just
-    # automagically load it
-    return ""
-
-
 @app.route("/tree/<name>/node/<node_id>", methods=["GET"])
 def get_node():
     # get one node by id with full detail
