@@ -10,12 +10,21 @@ pub enum NodeType {
     DOCUMENT,
     PARAGRAPH,
     HEADER,
+    None,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum NodeDeltaOperation {
     APPEND_AS_CHILD,
     DROP,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub enum NodeData {
+    None,
+    HeaderData { text: String, level: u8 },
+    DirectoryData { path: String },
+    DocumentData { path: String },
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -28,31 +37,20 @@ pub struct NodeDelta {
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Node {
     pub id: String,
-    pub raw: String,
-    pub block_type: NodeType,
-    pub blocks: std::vec::Vec<Node>,
-    pub data: HashMap<String, String>,
+    pub node_type: NodeType,
+    pub children: Vec<String>,
+    pub data: NodeData,
 }
 
 impl Node {
-    pub fn new(raw: String, block_type: NodeType) -> Self {
+    pub fn new(node_type: NodeType) -> Self {
         let id = Uuid::new_v4();
         let id_as_str = id.to_string();
         Self {
             id: id_as_str,
-            raw,
-            block_type,
-            blocks: vec![],
-            data: HashMap::new(),
-        }
-    }
-
-    pub fn type_as_string(&self) -> &str {
-        match self.block_type {
-            NodeType::DIRECTORY => "directory",
-            NodeType::HEADER => "header",
-            NodeType::DOCUMENT => "document",
-            NodeType::PARAGRAPH => "paragraph",
+            node_type,
+            children: vec![],
+            data: NodeData::None,
         }
     }
 }

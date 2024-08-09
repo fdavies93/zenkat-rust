@@ -1,4 +1,6 @@
 use clap::Parser;
+use std::collections::{vec_deque, HashMap, VecDeque};
+use std::path::Path;
 use std::sync::Arc;
 use std::thread;
 use std::{borrow::Borrow, num::NonZeroUsize};
@@ -13,21 +15,84 @@ use axum::{
 
 #[path = "../common.rs"]
 mod common;
+use common::node::{Node, NodeData, NodeType};
 
 mod app_state;
 use app_state::{AppConfig, AppState};
 
-struct Node {}
-
+#[derive(Debug, Clone)]
 struct Tree {
     path: String,
-    root_node: Node,
+    root_node: String,
+    nodes: HashMap<String, Node>,
+}
+
+impl Tree {
+    pub fn new() -> Tree {
+        return Tree {
+            path: String::new(),
+            root_node: String::new(),
+            nodes: HashMap::new(),
+        };
+    }
+
+    pub fn load(path: String, traverse_symbolic: bool) -> Option<Tree> {
+        let mut tree: Tree = Tree::new();
+        tree.path = path.clone();
+        let mut queue: VecDeque<String> = VecDeque::new();
+        let mut parents: HashMap<String, String> = HashMap::new();
+
+        while queue.len() > 0 {
+            let path_str = queue.pop_front()?;
+            let cur_path = Path::new(&path_str);
+            let mut cur_node: Node = Node::new(NodeType::None);
+            let cur_node_id: String = cur_node.id.clone();
+            if !cur_path.exists() {
+                continue;
+            } else if cur_path.is_symlink() && !traverse_symbolic {
+                continue;
+            } else if cur_path.is_file() {
+                if cur_path.extension()? != "md" {
+                    return None;
+                }
+                cur_node.node_type = NodeType::DOCUMENT;
+                cur_node.data = NodeData::DocumentData {
+                    path: cur_path.to_str()?.into(),
+                };
+                tree.nodes.insert(cur_node_id.clone(), cur_node);
+            } else if cur_path.is_dir() {
+                cur_node.node_type = NodeType::DIRECTORY;
+                cur_node.data = NodeData::DirectoryData {
+                    path: cur_path.to_str()?.into(),
+                };
+
+                let children = cur_path.read_dir().ok()?;
+                for child in children {
+                    let c_path = child.ok()?.path();
+                    let c_path_str: String = c_path.to_str()?.into();
+                    queue.push_back(c_path_str.clone());
+                    parents.insert(c_path_str, cur_node_id.clone());
+                }
+                tree.nodes.insert(cur_node_id.clone(), cur_node);
+            }
+            // link the parents to the children by ID using hash table
+            let parent_id = parents.get(&path_str);
+            match parent_id {
+                Some(_) => {
+                    let parent = tree.nodes.get_mut(parent_id.unwrap())?;
+                    parent.children.push(cur_node_id.clone());
+                }
+                None => tree.root_node = cur_node_id.clone(),
+            }
+        }
+        return Some(tree);
+    }
 }
 
 #[derive(Parser, Debug)]
 struct Args {
     #[arg(short, long)]
-    trees: Vec<String>,
+    tree: Vec<String>,
 
     #[arg(long, default_value = "0")]
     processes: usize,
@@ -45,8 +110,13 @@ struct Args {
     port: String,
 }
 
-async fn list_trees(State(state): State<AppState>) {
-    let mut data = state.trees.lock_owned();
+async fn list_trees(State(state): State<AppState>) -> Json<Vec<String>> {
+    let tree_guard = state.trees.lock().await;
+    let mut tree_details = vec![];
+    for tree in tree_guard.iter() {
+        tree_details.push(tree.path.clone());
+    }
+    return Json(tree_details);
 }
 
 async fn get_tree() {}
@@ -76,8 +146,18 @@ async fn main() {
         parser = args.parser;
     }
 
+    let mut trees = vec![];
+    for path in args.tree {
+        println!("{}", path);
+        trees.push(Tree {
+            path,
+            root_node: "".to_string(),
+            nodes: HashMap::new(),
+        });
+    }
+
     let state = AppState {
-        trees: Arc::new(Mutex::new(vec![])),
+        trees: Arc::new(Mutex::new(trees.to_owned())),
         app_config: AppConfig {
             follow_symlinks: args.follow_symlinks,
             doc_parser: parser,
