@@ -42,18 +42,21 @@ impl Tree {
         let mut queue: VecDeque<String> = VecDeque::new();
         let mut parents: HashMap<String, String> = HashMap::new();
 
+        queue.push_back(path.clone());
+
         while queue.len() > 0 {
             let path_str = queue.pop_front()?;
             let cur_path = Path::new(&path_str);
             let mut cur_node: Node = Node::new(NodeType::None);
             let cur_node_id: String = cur_node.id.clone();
+            println!("{}", path_str);
             if !cur_path.exists() {
                 continue;
             } else if cur_path.is_symlink() && !traverse_symbolic {
                 continue;
             } else if cur_path.is_file() {
                 if cur_path.extension()? != "md" {
-                    return None;
+                    continue;
                 }
                 cur_node.node_type = NodeType::DOCUMENT;
                 cur_node.data = NodeData::DocumentData {
@@ -78,8 +81,8 @@ impl Tree {
             // link the parents to the children by ID using hash table
             let parent_id = parents.get(&path_str);
             match parent_id {
-                Some(_) => {
-                    let parent = tree.nodes.get_mut(parent_id.unwrap())?;
+                Some(id) => {
+                    let parent = tree.nodes.get_mut(id)?;
                     parent.children.push(cur_node_id.clone());
                 }
                 None => tree.root_node = cur_node_id.clone(),
@@ -148,12 +151,11 @@ async fn main() {
 
     let mut trees = vec![];
     for path in args.tree {
-        println!("{}", path);
-        trees.push(Tree {
-            path,
-            root_node: "".to_string(),
-            nodes: HashMap::new(),
-        });
+        let cur_tree = Tree::load(path, args.follow_symlinks);
+        match cur_tree {
+            Some(tree) => trees.push(tree),
+            None => {}
+        }
     }
 
     let state = AppState {
