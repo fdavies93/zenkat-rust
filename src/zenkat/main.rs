@@ -122,7 +122,21 @@ async fn list_trees(State(state): State<AppState>) -> Json<Vec<String>> {
     return Json(tree_details);
 }
 
-async fn get_tree() {}
+async fn get_tree(
+    axum::extract::Path(name): axum::extract::Path<String>,
+    State(state): State<AppState>,
+) -> Json<Vec<Node>> {
+    let tree_guard = state.trees.lock().await;
+    let mut node_details = vec![];
+    for tree in tree_guard.iter() {
+        if tree.path == name {
+            for (_, node) in tree.nodes.iter() {
+                node_details.push(node.clone());
+            }
+        }
+    }
+    return Json(node_details);
+}
 
 async fn put_tree() {}
 
