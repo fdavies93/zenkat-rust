@@ -2,6 +2,7 @@ use clap::Parser;
 use serde::Deserialize;
 use std::sync::Arc;
 use std::thread;
+use std::time::Instant;
 use std::{collections::HashMap, num::NonZeroUsize};
 use tokio::process::Command;
 use tokio::sync::Mutex;
@@ -100,7 +101,11 @@ async fn get_tree(
                     }
                 }
 
+                let mut counted = 0;
+                let before = Instant::now();
+
                 while let Some(res) = set.join_next().await {
+                    counted += 1;
                     let doc_tree = res.unwrap();
                     let root_id = doc_tree.root_node.clone();
                     let new_root = doc_tree.nodes.get(&root_id).unwrap();
@@ -123,6 +128,7 @@ async fn get_tree(
                         tree.nodes.insert(node_id.clone(), node.clone());
                     }
                 }
+                println!("Loaded {} documents in {:.4?}.", counted, before.elapsed());
             }
             return Json(Some(tree.clone()));
         }
