@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 use crate::common::node::{Node, NodeData, NodeType};
 use std::collections::{HashMap, VecDeque};
 use std::path::Path;
+use std::time::Instant;
+use tokio::process::Command;
+use tokio::task::JoinSet;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tree {
@@ -77,5 +80,64 @@ impl Tree {
             }
         }
         return Some(tree);
+    }
+
+    pub async fn load_document(path: String, parser: String) -> Tree {
+        let output = Command::new(parser.as_str())
+            .arg(path)
+            .output()
+            .await
+            .expect("");
+
+        let parsed_json = String::from_utf8(output.stdout).expect("");
+        let parsed_tree: Tree = serde_json::from_str(parsed_json.as_str()).unwrap();
+        return parsed_tree;
+    }
+
+    pub async fn load_all_unloaded_docs(&mut self, parser: String) {
+        // trigger full document load
+        let mut set = JoinSet::new();
+        let mut path_to_id: HashMap<String, String> = HashMap::new();
+
+        for (_, node) in self.nodes.iter() {
+            match node.data.clone() {
+                NodeData::DocumentData { path, loaded } => {
+                    if !loaded {
+                        path_to_id.insert(path.clone(), node.id.clone());
+                        set.spawn(Tree::load_document(path.clone(), parser.clone()));
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let mut counted = 0;
+        let before = Instant::now();
+
+        while let Some(res) = set.join_next().await {
+            counted += 1;
+            let doc_tree = res.unwrap();
+            let root_id = doc_tree.root_node.clone();
+            let new_root = doc_tree.nodes.get(&root_id).unwrap();
+            let path = doc_tree.path.clone();
+            // copy data to original node, rather than replacing it (so we don't need to recalculate parent links)
+            let og_node_id = path_to_id.get(&path).unwrap();
+            let og_node = self.nodes.get_mut(og_node_id).unwrap();
+            og_node.children = new_root.children.clone();
+            match og_node.data.clone() {
+                NodeData::DocumentData { path, loaded: _ } => {
+                    og_node.data = NodeData::DocumentData { path, loaded: true };
+                }
+                _ => {}
+            }
+
+            for (node_id, node) in doc_tree.nodes.iter() {
+                if node_id.clone() == root_id {
+                    continue;
+                }
+                self.nodes.insert(node_id.clone(), node.clone());
+            }
+        }
+        println!("Loaded {} documents in {:.4?}.", counted, before.elapsed());
     }
 }

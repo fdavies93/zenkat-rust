@@ -69,18 +69,6 @@ async fn list_trees(State(state): State<AppState>) -> Json<Vec<TreeDetail>> {
     return Json(tree_details);
 }
 
-async fn load_document(path: String, parser: String) -> Tree {
-    let output = Command::new(parser.as_str())
-        .arg(path)
-        .output()
-        .await
-        .expect("");
-
-    let parsed_json = String::from_utf8(output.stdout).expect("");
-    let parsed_tree: Tree = serde_json::from_str(parsed_json.as_str()).unwrap();
-    return parsed_tree;
-}
-
 async fn get_tree(
     Path(name): Path<String>,
     Query(tree_params): Query<GetTreeParams>,
@@ -91,53 +79,8 @@ async fn get_tree(
         if tree.name == name {
             let lod = tree_params.lod.unwrap_or("document".into());
             if lod == "block" || lod == "full" {
-                // trigger full document load
-                let mut set = JoinSet::new();
-                let mut path_to_id: HashMap<String, String> = HashMap::new();
-
-                for (_, node) in tree.nodes.iter() {
-                    match node.data.clone() {
-                        common::node::NodeData::DocumentData { path, loaded } => {
-                            if !loaded {
-                                path_to_id.insert(path.clone(), node.id.clone());
-                                set.spawn(load_document(
-                                    path.clone(),
-                                    state.app_config.doc_parser.clone(),
-                                ));
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-
-                let mut counted = 0;
-                let before = Instant::now();
-
-                while let Some(res) = set.join_next().await {
-                    counted += 1;
-                    let doc_tree = res.unwrap();
-                    let root_id = doc_tree.root_node.clone();
-                    let new_root = doc_tree.nodes.get(&root_id).unwrap();
-                    let path = doc_tree.path.clone();
-                    // copy data to original node, rather than replacing it (so we don't need to recalculate parent links)
-                    let og_node_id = path_to_id.get(&path).unwrap();
-                    let og_node = tree.nodes.get_mut(og_node_id).unwrap();
-                    og_node.children = new_root.children.clone();
-                    match og_node.data.clone() {
-                        NodeData::DocumentData { path, loaded } => {
-                            og_node.data = NodeData::DocumentData { path, loaded: true };
-                        }
-                        _ => {}
-                    }
-
-                    for (node_id, node) in doc_tree.nodes.iter() {
-                        if node_id.clone() == root_id {
-                            continue;
-                        }
-                        tree.nodes.insert(node_id.clone(), node.clone());
-                    }
-                }
-                println!("Loaded {} documents in {:.4?}.", counted, before.elapsed());
+                let parser = state.app_config.doc_parser.clone();
+                tree.load_all_unloaded_docs(parser).await;
             }
             return Json(Some(tree.clone()));
         }
