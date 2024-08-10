@@ -24,7 +24,8 @@ pub enum NodeData {
     None,
     HeaderData { text: String, level: u8 },
     DirectoryData { path: String },
-    DocumentData { path: String },
+    DocumentData { path: String, loaded: bool },
+    ParagraphData { text: String },
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
