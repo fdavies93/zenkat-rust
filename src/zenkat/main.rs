@@ -1,5 +1,5 @@
 use clap::Parser;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
@@ -30,6 +30,12 @@ struct GetTreeParams {
                          // E.g. if it's "document" it will display all documents. If it's "block" it will display only block-level document elements.
 }
 
+#[derive(Serialize, Deserialize)]
+struct TreeDetail {
+    path: String,
+    name: String,
+}
+
 #[derive(Parser, Debug)]
 struct Args {
     #[arg(short, long)]
@@ -51,11 +57,14 @@ struct Args {
     port: String,
 }
 
-async fn list_trees(State(state): State<AppState>) -> Json<Vec<String>> {
+async fn list_trees(State(state): State<AppState>) -> Json<Vec<TreeDetail>> {
     let tree_guard = state.trees.lock().await;
     let mut tree_details = vec![];
     for tree in tree_guard.iter() {
-        tree_details.push(tree.path.clone());
+        tree_details.push(TreeDetail {
+            path: tree.path.clone(),
+            name: tree.name.clone(),
+        });
     }
     return Json(tree_details);
 }
@@ -79,7 +88,7 @@ async fn get_tree(
 ) -> Json<Option<Tree>> {
     let mut tree_guard = state.trees.lock().await;
     for tree in tree_guard.iter_mut() {
-        if tree.path == name {
+        if tree.name == name {
             let lod = tree_params.lod.unwrap_or("document".into());
             if lod == "block" || lod == "full" {
                 // trigger full document load
@@ -162,8 +171,9 @@ async fn main() {
     }
 
     let mut trees = vec![];
-    for path in args.tree {
-        let cur_tree = Tree::load(path, args.follow_symlinks).await;
+    for tree_arg in args.tree {
+        let (name, path) = tree_arg.split_once(":").unwrap();
+        let cur_tree = Tree::load(name.into(), path.into(), args.follow_symlinks).await;
         match cur_tree {
             Some(tree) => trees.push(tree),
             None => {}

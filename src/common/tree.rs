@@ -6,6 +6,7 @@ use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tree {
+    pub name: String,
     pub path: String,
     pub root_node: String,
     pub nodes: HashMap<String, Node>,
@@ -14,14 +15,16 @@ pub struct Tree {
 impl Tree {
     pub fn new() -> Tree {
         return Tree {
+            name: String::new(),
             path: String::new(),
             root_node: String::new(),
             nodes: HashMap::new(),
         };
     }
 
-    pub async fn load(path: String, traverse_symbolic: bool) -> Option<Tree> {
+    pub async fn load(name: String, path: String, traverse_symbolic: bool) -> Option<Tree> {
         let mut tree: Tree = Tree::new();
+        tree.name = name.clone();
         tree.path = path.clone();
         let mut queue: VecDeque<String> = VecDeque::new();
         let mut parents: HashMap<String, String> = HashMap::new();
