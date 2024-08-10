@@ -2,22 +2,18 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::thread;
-use std::time::Instant;
 use std::{collections::HashMap, num::NonZeroUsize};
-use tokio::process::Command;
 use tokio::sync::Mutex;
-use tokio::task::JoinSet;
 
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    routing::{get, post, put},
+    routing::{get, post},
     Json, Router,
 };
 
 #[path = "../common.rs"]
 mod common;
-use common::node::{Node, NodeData, NodeType};
 use common::tree::Tree;
 
 mod app_state;
@@ -88,16 +84,10 @@ async fn get_tree(
     return Json(None);
 }
 
-async fn put_tree() {}
-
 async fn query_tree() {}
 
 async fn get_node() {}
 
-// design point: PUT /tree might be unnecessary as if this is a RESTful
-// API then state of cache shouldn't really be directly controllable
-// on such a granular level
-// for debugging / early dev it's probably ok however
 #[tokio::main]
 async fn main() {
     let mut processes = thread::available_parallelism().expect("");
@@ -134,7 +124,6 @@ async fn main() {
 
     let app = Router::new()
         .route("/tree", get(list_trees))
-        .route("/tree", put(put_tree)) // unclear if this one is necessary
         .route("/tree/:name", get(get_tree))
         .route("/tree/:name/query", post(query_tree))
         .route("/tree/:name/:node", get(get_node))

@@ -135,7 +135,6 @@ fn parse_document(path: &str) -> Tree {
     let mut to_parse = String::from(&raw);
 
     loop {
-        // println!("{}", to_parse.len());
         if to_parse.is_empty() {
             break;
         }
