@@ -16,7 +16,7 @@ use axum::{
 
 #[path = "../common.rs"]
 mod common;
-use common::node::{Node, NodeType};
+use common::node::{Node, NodeData, NodeType};
 use common::tree::Tree;
 
 mod app_state;
@@ -109,6 +109,12 @@ async fn get_tree(
                     let og_node_id = path_to_id.get(&path).unwrap();
                     let og_node = tree.nodes.get_mut(og_node_id).unwrap();
                     og_node.children = new_root.children.clone();
+                    match og_node.data.clone() {
+                        NodeData::DocumentData { path, loaded } => {
+                            og_node.data = NodeData::DocumentData { path, loaded: true };
+                        }
+                        _ => {}
+                    }
 
                     for (node_id, node) in doc_tree.nodes.iter() {
                         if node_id.clone() == root_id {
