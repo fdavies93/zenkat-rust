@@ -1,12 +1,13 @@
+use axum::handler::Handler;
 use clap::{Parser, Subcommand};
 use reqwest;
 use tokio;
 
 #[path = "../common.rs"]
 mod common;
+use common::tree::Tree;
 
-use common::zk_request::{ZkRequest, ZkRequestType};
-use common::zk_response::ZkResponse;
+use crate::common::node::NodeData;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -25,7 +26,32 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    LoadZk { path: String },
+    Tree { name: String },
+}
+
+fn visualise_tree(tree: &Tree, cur_node_id: String, cur_depth: usize) {
+    let cur_node = tree.nodes.get(&cur_node_id).unwrap();
+    let indent = "  ".repeat(cur_depth);
+
+    let mut content: String = String::new();
+
+    match cur_node.data.clone() {
+        NodeData::DirectoryData { path } => {
+            content = path.clone();
+        }
+        NodeData::DocumentData { path, loaded: _ } => {
+            content = path.clone();
+        }
+        NodeData::HeaderData { text, level } => content = format!("<h{}> {}", level, text),
+        NodeData::ParagraphData { text: _ } => content = "<p>".into(),
+        _ => {}
+    }
+
+    println!("{}{}", indent, content);
+
+    for child in cur_node.children.iter() {
+        visualise_tree(tree, child.clone(), cur_depth + 1);
+    }
 }
 
 #[tokio::main]
@@ -43,20 +69,19 @@ async fn main() {
     .join("");
 
     match &args.cmd {
-        Command::LoadZk { path } => {
-            let mut request = ZkRequest::new(ZkRequestType::ZkLoad);
-            request.data.insert("load_zk".to_string(), path.clone());
-            let res = client.post(server_uri).json(&request).send().await;
+        Command::Tree { name } => {
+            let uri = vec![server_uri, "tree".into(), name.into()].join("/");
+            let uri_params = vec![uri.clone(), "lod=full".into()].join("?");
 
-            match res {
-                Ok(res) => {
-                    let body = res.json::<ZkResponse>().await.unwrap();
-                    println!("{:?}", body)
-                }
-                Err(e) => {
-                    println!("{:?}", e)
-                }
-            }
+            let tree: Tree = client
+                .get(uri_params)
+                .send()
+                .await
+                .unwrap()
+                .json()
+                .await
+                .unwrap();
+            visualise_tree(&tree, tree.root_node.clone(), 0);
         }
-    }
+    };
 }

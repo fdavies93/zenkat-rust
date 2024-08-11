@@ -1,24 +1,41 @@
 use clap::Parser;
-use std::num::NonZeroUsize;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use std::thread;
+use std::{collections::HashMap, num::NonZeroUsize};
+use tokio::sync::Mutex;
+
+use axum::{
+    extract::{Path, Query, State},
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
 
 #[path = "../common.rs"]
 mod common;
+use common::tree::Tree;
 
-mod tree_store;
-use tree_store::TreeStore;
+mod app_state;
+use app_state::{AppConfig, AppState};
 
-use axum::{http::StatusCode, routing::post, Json, Router};
+#[derive(Deserialize)]
+struct GetTreeParams {
+    lod: Option<String>, // Level of Detail
+                         // The lowest level type of node to display.
+                         // E.g. if it's "document" it will display all documents. If it's "block" it will display only block-level document elements.
+}
 
-use common::zk_request::ZkRequest;
-use common::zk_response::ZkResponse;
-
-mod query_parser;
+#[derive(Serialize, Deserialize)]
+struct TreeDetail {
+    path: String,
+    name: String,
+}
 
 #[derive(Parser, Debug)]
 struct Args {
     #[arg(short, long)]
-    zk: Vec<String>,
+    tree: Vec<String>,
 
     #[arg(long, default_value = "0")]
     processes: usize,
@@ -36,13 +53,40 @@ struct Args {
     port: String,
 }
 
-async fn handle_query(Json(payload): Json<ZkRequest>) -> (StatusCode, Json<ZkResponse>) {
-    let res = ZkResponse::new();
-
-    println!("{:?}", payload);
-
-    return (StatusCode::OK, Json(res));
+async fn list_trees(State(state): State<AppState>) -> Json<Vec<TreeDetail>> {
+    let tree_guard = state.trees.lock().await;
+    let mut tree_details = vec![];
+    for tree in tree_guard.iter() {
+        tree_details.push(TreeDetail {
+            path: tree.path.clone(),
+            name: tree.name.clone(),
+        });
+    }
+    return Json(tree_details);
 }
+
+async fn get_tree(
+    Path(name): Path<String>,
+    Query(tree_params): Query<GetTreeParams>,
+    State(state): State<AppState>,
+) -> Json<Option<Tree>> {
+    let mut tree_guard = state.trees.lock().await;
+    for tree in tree_guard.iter_mut() {
+        if tree.name == name {
+            let lod = tree_params.lod.unwrap_or("document".into());
+            if lod == "block" || lod == "full" {
+                let parser = state.app_config.doc_parser.clone();
+                tree.load_all_unloaded_docs(parser).await;
+            }
+            return Json(Some(tree.clone()));
+        }
+    }
+    return Json(None);
+}
+
+async fn query_tree() {}
+
+async fn get_node() {}
 
 #[tokio::main]
 async fn main() {
@@ -59,29 +103,33 @@ async fn main() {
         parser = args.parser;
     }
 
-    let store = TreeStore::load(args.zk, args.follow_symlinks);
+    let mut trees = vec![];
+    for tree_arg in args.tree {
+        let (name, path) = tree_arg.split_once(":").unwrap();
+        let cur_tree = Tree::load(name.into(), path.into(), args.follow_symlinks).await;
+        match cur_tree {
+            Some(tree) => trees.push(tree),
+            None => {}
+        }
+    }
+
+    let state = AppState {
+        trees: Arc::new(Mutex::new(trees.to_owned())),
+        app_config: AppConfig {
+            follow_symlinks: args.follow_symlinks,
+            doc_parser: parser,
+            processes,
+        },
+    };
+
+    let app = Router::new()
+        .route("/tree", get(list_trees))
+        .route("/tree/:name", get(get_tree))
+        .route("/tree/:name/query", post(query_tree))
+        .route("/tree/:name/:node", get(get_node))
+        .with_state(state);
 
     let addr = vec![args.interface, ":".into(), args.port.into()].join("");
-
-    println!("Starting Zenkat HTTP server on {}", addr);
-    // setup web server with Axum
-    let app = Router::new().route("/", post(handle_query));
-
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
-
-    // if args.load_all {
-    //     let docs = store.get_all_documents_mut();
-    //     TreeStore::hydrate_docs(docs, processes.into(), &parser).await;
-    // }
-    // if args.query.is_some() {
-    //     let collected = store.query(&args.query.unwrap());
-    //     let as_json = serde_json::to_string_pretty(&collected).unwrap();
-    //     println!("{}", as_json);
-    // }
-    // if args.trees {
-    //     for tree in store.get_trees() {
-    //         println!("{}", tree.data.get("path").unwrap());
-    //     }
-    // }
 }
