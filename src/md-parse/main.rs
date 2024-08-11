@@ -118,9 +118,47 @@ fn parse_paragraph(raw: String) -> Option<(String, Node)> {
     return Some((unconsumed, output));
 }
 
+fn parse_blank_line(raw: String) -> Option<(String, Node)> {
+    // just emit a token
+    let mut unconsumed = raw;
+
+    let next_char = match unconsumed.chars().next() {
+        Some(out) => out,
+        None => return None,
+    };
+
+    if next_char != '\n' {
+        return None;
+    }
+
+    let (_, suffix) = unconsumed.split_at(next_char.len_utf8());
+    unconsumed = String::from(suffix);
+
+    loop {
+        if unconsumed.is_empty() {
+            break;
+        }
+
+        let next_char = unconsumed.chars().next().unwrap();
+
+        if next_char == ' ' || next_char == '\t' || next_char == '\r' {
+            // i.e. ignore
+            let (_, suffix) = unconsumed.split_at(next_char.len_utf8());
+            unconsumed = String::from(suffix);
+        } else if next_char == '\n' {
+            break;
+        } else {
+            return None;
+        }
+    }
+
+    let output = Node::new(NodeType::None);
+    return Some((unconsumed, output));
+}
+
 fn parse_document(path: &str) -> Tree {
     let parse_fns: Vec<&dyn Fn(String) -> Option<(String, Node)>> =
-        vec![&parse_atx_header, &parse_paragraph];
+        vec![&parse_atx_header, &parse_blank_line, &parse_paragraph];
     let raw = read_to_string(path).expect("");
     let mut root = Node::new(NodeType::DOCUMENT);
 
@@ -146,6 +184,9 @@ fn parse_document(path: &str) -> Tree {
                 let (remaining, node) = result.unwrap();
                 to_parse = remaining;
 
+                if node.node_type == NodeType::None {
+                    break;
+                }
                 root.children.push(node.id.clone());
                 output.nodes.insert(node.id.clone(), node);
             }

@@ -83,6 +83,7 @@ impl Tree {
     }
 
     pub async fn load_document(path: String, parser: String) -> Tree {
+        println!("Loading {}", path);
         let output = Command::new(parser.as_str())
             .arg(path)
             .output()
@@ -116,7 +117,17 @@ impl Tree {
 
         while let Some(res) = set.join_next().await {
             counted += 1;
-            let doc_tree = res.unwrap();
+
+            let mut doc_tree = Tree::new();
+            match res {
+                Ok(res_ok) => {
+                    doc_tree = res_ok;
+                }
+                Err(_) => {
+                    continue;
+                }
+            }
+
             let root_id = doc_tree.root_node.clone();
             let new_root = doc_tree.nodes.get(&root_id).unwrap();
             let path = doc_tree.path.clone();
