@@ -19,6 +19,28 @@ fn parse_atx_header(raw: String) -> Option<(String, Node)> {
     let mut unconsumed = raw;
     let mut buffer = String::new();
 
+    // there should be a maximum of one leading \n
+    loop {
+        if unconsumed.is_empty() {
+            break;
+        }
+
+        let first_char = unconsumed.chars().next().unwrap();
+
+        let (prefix, suffix) = unconsumed.split_at(first_char.len_utf8());
+
+        if prefix == "\n" {
+            buffer.push_str(prefix);
+            unconsumed = String::from(suffix);
+        } else {
+            break;
+        }
+
+        if buffer.len() >= 2 {
+            return None;
+        }
+    }
+
     // parse leading # signs
     loop {
         if unconsumed.is_empty() {
