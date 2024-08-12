@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use axum::handler::Handler;
 use clap::{Parser, Subcommand};
 use reqwest;
@@ -5,7 +7,7 @@ use tokio;
 
 #[path = "../common.rs"]
 mod common;
-use common::tree::Tree;
+use common::tree::{self, Tree};
 
 use crate::common::node::NodeData;
 
@@ -26,7 +28,14 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    Tree { name: String },
+    Tree {
+        name: String,
+    },
+    Html {
+        path: String,
+        #[arg(long, default_value = "target/debug/md-parse")]
+        parser: String,
+    },
 }
 
 fn visualise_tree(tree: &Tree, cur_node_id: String, cur_depth: usize) {
@@ -51,6 +60,28 @@ fn visualise_tree(tree: &Tree, cur_node_id: String, cur_depth: usize) {
 
     for child in cur_node.children.iter() {
         visualise_tree(tree, child.clone(), cur_depth + 1);
+    }
+}
+
+fn render_tree_html(tree: &Tree, cur_node_id: String, cur_depth: usize) {
+    let cur_node = tree.nodes.get(&cur_node_id).unwrap();
+    let indent = "  ".repeat(cur_depth);
+
+    match cur_node.data.clone() {
+        NodeData::DocumentData { path: _, loaded: _ } => {
+            println!("<html><head><link rel=\"stylesheet\" href=\"https://cdn.simplecss.org/simple.min.css\"></head><body>");
+            for child in cur_node.children.iter() {
+                render_tree_html(tree, child.clone(), cur_depth + 1)
+            }
+            println!("</body></html>");
+        }
+        NodeData::HeaderData { text, level } => {
+            println!("{}<h{}>{}</h{}>", indent, level, text, level);
+        }
+        NodeData::ParagraphData { text } => {
+            println!("{}<p>{}</p>", indent, text)
+        }
+        _ => {}
     }
 }
 
@@ -82,6 +113,16 @@ async fn main() {
                 .await
                 .unwrap();
             visualise_tree(&tree, tree.root_node.clone(), 0);
+        }
+        Command::Html {
+            path: path_str,
+            parser,
+        } => {
+            let path = Path::new(path_str);
+            if path.is_file() && path.extension().unwrap() == "md" {
+                let tree = Tree::load_document(path_str.clone(), parser.clone()).await;
+                render_tree_html(&tree, tree.root_node.clone(), 0);
+            }
         }
     };
 }

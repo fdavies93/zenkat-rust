@@ -83,7 +83,6 @@ impl Tree {
     }
 
     pub async fn load_document(path: String, parser: String) -> Tree {
-        println!("Loading {}", path);
         let output = Command::new(parser.as_str())
             .arg(path)
             .output()
