@@ -16,6 +16,9 @@ pub struct Tree {
 }
 
 impl Tree {
+    // new functions:
+    // splice (replace data of node and add children)
+    // add_as_child (just make a child of an existing node)
     pub fn new() -> Tree {
         return Tree {
             name: String::new(),

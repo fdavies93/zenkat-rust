@@ -1,13 +1,14 @@
 use async_process::Output;
 use clap::Parser;
 use serde_json::to_string;
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::io::{self, Write};
 
 #[path = "../common.rs"]
 mod common;
-use common::node::{Node, NodeData, NodeType};
+use common::node::{ListType, Node, NodeData, NodeType};
 use common::tree::Tree;
 
 #[derive(Parser, Debug)]
@@ -15,7 +16,8 @@ struct Args {
     path: String,
 }
 
-fn parse_atx_header(raw: String) -> Option<(String, Node)> {
+// Maybe make everything return a tree and write tree manipulation functions
+fn parse_atx_header(raw: String) -> Option<(String, Vec<Node>)> {
     let mut unconsumed = raw;
     let mut buffer = String::new();
 
@@ -103,10 +105,10 @@ fn parse_atx_header(raw: String) -> Option<(String, Node)> {
         // if we have more than 255 # something is horribly wrong
     };
 
-    return Some((unconsumed, node));
+    return Some((unconsumed, vec![node]));
 }
 
-fn parse_paragraph(raw: String) -> Option<(String, Node)> {
+fn parse_paragraph(raw: String) -> Option<(String, Vec<Node>)> {
     let mut unconsumed = raw;
     let mut buffer = String::new();
     let mut output_buffer = String::new();
@@ -137,10 +139,10 @@ fn parse_paragraph(raw: String) -> Option<(String, Node)> {
         text: output_buffer,
     };
 
-    return Some((unconsumed, output));
+    return Some((unconsumed, vec![output]));
 }
 
-fn parse_blank_line(raw: String) -> Option<(String, Node)> {
+fn parse_blank_line(raw: String) -> Option<(String, Vec<Node>)> {
     // just emit a token
     let mut unconsumed = raw;
 
@@ -175,11 +177,42 @@ fn parse_blank_line(raw: String) -> Option<(String, Node)> {
     }
 
     let output = Node::new(NodeType::None);
-    return Some((unconsumed, output));
+    return Some((unconsumed, vec![output]));
+}
+
+fn parse_list_item(raw: String) -> Option<(String, Vec<Node>)> {
+    return None;
+}
+
+fn parse_list(raw: String) -> Option<(String, Vec<Node>)> {
+    let mut working_list: Vec<Node> = Vec::new();
+    let mut unconsumed = raw.clone();
+    let mut prev_node_type: Option<ListType> = None;
+
+    loop {
+        let option = parse_list_item(unconsumed.clone());
+        match option {
+            Some((new_raw, mut output)) => {
+                unconsumed = new_raw.clone();
+                working_list.append(&mut output);
+            }
+            None => {
+                break;
+            }
+        }
+    }
+
+    if working_list.len() == 0 {
+        return None;
+    }
+
+    let mut list_node = Node::new(NodeType::LIST);
+
+    return Some((unconsumed, working_list));
 }
 
 fn parse_document(path: &str) -> Tree {
-    let parse_fns: Vec<&dyn Fn(String) -> Option<(String, Node)>> =
+    let parse_fns: Vec<&dyn Fn(String) -> Option<(String, Vec<Node>)>> =
         vec![&parse_atx_header, &parse_blank_line, &parse_paragraph];
     let raw = read_to_string(path).expect("");
     let mut root = Node::new(NodeType::DOCUMENT);

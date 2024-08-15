@@ -10,13 +10,15 @@ pub enum NodeType {
     DOCUMENT,
     PARAGRAPH,
     HEADER,
-    None,
+    LIST_ITEM,
+    LIST,
+    None, // used in parsing to indicate "consume token but don't email anything"
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-pub enum NodeDeltaOperation {
-    APPEND_AS_CHILD,
-    DROP,
+pub enum ListType {
+    UNORDERED_LIST,
+    ORDERED_LIST,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -26,13 +28,8 @@ pub enum NodeData {
     DirectoryData { path: String },
     DocumentData { path: String, loaded: bool },
     ParagraphData { text: String },
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-pub struct NodeDelta {
-    pub source_id: String,
-    pub op: NodeDeltaOperation,
-    pub payload: Node,
+    ListData { list_type: ListType },
+    ListItemData { list_type: ListType },
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
