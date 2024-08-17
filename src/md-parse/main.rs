@@ -105,7 +105,7 @@ fn parse_atx_header(raw: String) -> Option<(String, Tree)> {
         // if we have more than 255 # something is horribly wrong
     };
 
-    return Some((unconsumed, vec![node]));
+    return Some((unconsumed, Tree::new(node)));
 }
 
 fn parse_paragraph(raw: String) -> Option<(String, Tree)> {
@@ -139,7 +139,7 @@ fn parse_paragraph(raw: String) -> Option<(String, Tree)> {
         text: output_buffer,
     };
 
-    return Some((unconsumed, vec![output]));
+    return Some((unconsumed, Tree::new(output)));
 }
 
 fn parse_blank_line(raw: String) -> Option<(String, Tree)> {
@@ -177,24 +177,25 @@ fn parse_blank_line(raw: String) -> Option<(String, Tree)> {
     }
 
     let output = Node::new(NodeType::None);
-    return Some((unconsumed, vec![output]));
+    return Some((unconsumed, Tree::new(output)));
 }
 
 fn parse_list_item(raw: String) -> Option<(String, Tree)> {
     return None;
 }
 
-fn parse_list(raw: String) -> Option<(String, Vec<Node>)> {
-    let mut working_list: Vec<Node> = Vec::new();
+fn parse_list(raw: String) -> Option<(String, Tree)> {
+    let mut working_tree = Tree::new(Node::new(NodeType::LIST));
     let mut unconsumed = raw.clone();
-    let mut prev_node_type: Option<ListType> = None;
+    let mut have_items: bool = false;
 
     loop {
         let option = parse_list_item(unconsumed.clone());
         match option {
             Some((new_raw, mut output)) => {
                 unconsumed = new_raw.clone();
-                working_list.append(&mut output);
+                working_tree.insert_child_under(output, working_tree.get_root_id());
+                have_items = true;
             }
             None => {
                 break;
@@ -202,13 +203,13 @@ fn parse_list(raw: String) -> Option<(String, Vec<Node>)> {
         }
     }
 
-    if working_list.len() == 0 {
+    if !have_items {
         return None;
     }
 
     let mut list_node = Node::new(NodeType::LIST);
 
-    return Some((unconsumed, working_list));
+    return Some((unconsumed, working_tree));
 }
 
 fn parse_document(path: &str) -> Tree {
@@ -223,7 +224,6 @@ fn parse_document(path: &str) -> Tree {
         loaded: true,
     };
     let mut output = Tree::new(root);
-    output.path = path.into();
 
     let mut to_parse = String::from(&raw);
 

@@ -14,6 +14,7 @@ use axum::{
 
 #[path = "../common.rs"]
 mod common;
+use common::node::NodeData;
 use common::tree::Tree;
 
 mod app_state;
@@ -57,9 +58,15 @@ async fn list_trees(State(state): State<AppState>) -> Json<Vec<TreeDetail>> {
     let tree_guard = state.trees.lock().await;
     let mut tree_details = vec![];
     for tree in tree_guard.iter() {
+        let path = match tree.get_root().data.clone() {
+            NodeData::DocumentData { path, loaded: _ } => path,
+            NodeData::DirectoryData { path } => path,
+            _ => continue,
+        };
+
         tree_details.push(TreeDetail {
-            path: tree.path.clone(),
             name: tree.name.clone(),
+            path,
         });
     }
     return Json(tree_details);
