@@ -10,7 +10,6 @@ use tokio::task::JoinSet;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tree {
     pub name: String,
-    pub path: String,
     pub root_node: String,
     pub nodes: HashMap<String, Node>,
 }
@@ -19,19 +18,52 @@ impl Tree {
     // new functions:
     // splice (replace data of node and add children)
     // add_as_child (just make a child of an existing node)
-    pub fn new() -> Tree {
+    pub fn new(root: Node) -> Tree {
+        let mut nodes = HashMap::new();
+        let root_id = root.id.clone();
+        nodes.insert(root.id.clone(), root);
+
         return Tree {
             name: String::new(),
-            path: String::new(),
-            root_node: String::new(),
+            root_node: root_id.clone(),
             nodes: HashMap::new(),
         };
     }
 
+    /// Returns the root node
+    pub fn get_root(&self) -> &Node {
+        let root = self.nodes.get(&self.root_node).unwrap();
+        return root;
+    }
+
+    pub fn get_node_mut(&mut self, node_id: String) -> Option<&mut Node> {
+        return self.nodes.get_mut(&node_id);
+    }
+
+    /// Insert the root of the subtree as a child node of the target
+    /// node and move all nodes to this tree.
+    /// Note that this moves the subtree, which is fine as we're usually
+    /// working with short-lived subtrees.
+    pub fn insert_child_under(&mut self, subtree: Tree, target_id: String) {
+        let child_root_id = subtree.get_root().id.clone();
+        for (node_id, node) in subtree.nodes {
+            if node_id.clone() == child_root_id {
+                let target_node = self.get_node_mut(target_id.clone()).unwrap();
+                target_node.children.push(child_root_id.clone());
+            }
+            self.nodes.insert(node_id.clone(), node);
+        }
+    }
+
+    /// Copies data from the root of the subtree to the target node
+    /// and inserts all child nodes *without* changing the ID of
+    /// the target node.
+    pub fn splice_at(&mut self, subtree: Tree, target_id: String) {}
+
+    /// Loads the
     pub async fn load(name: String, path: String, traverse_symbolic: bool) -> Option<Tree> {
         let mut tree: Tree = Tree::new();
         tree.name = name.clone();
-        tree.path = path.clone();
         let mut queue: VecDeque<String> = VecDeque::new();
         let mut parents: HashMap<String, String> = HashMap::new();
 

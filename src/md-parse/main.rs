@@ -17,7 +17,7 @@ struct Args {
 }
 
 // Maybe make everything return a tree and write tree manipulation functions
-fn parse_atx_header(raw: String) -> Option<(String, Vec<Node>)> {
+fn parse_atx_header(raw: String) -> Option<(String, Tree)> {
     let mut unconsumed = raw;
     let mut buffer = String::new();
 
@@ -108,7 +108,7 @@ fn parse_atx_header(raw: String) -> Option<(String, Vec<Node>)> {
     return Some((unconsumed, vec![node]));
 }
 
-fn parse_paragraph(raw: String) -> Option<(String, Vec<Node>)> {
+fn parse_paragraph(raw: String) -> Option<(String, Tree)> {
     let mut unconsumed = raw;
     let mut buffer = String::new();
     let mut output_buffer = String::new();
@@ -142,7 +142,7 @@ fn parse_paragraph(raw: String) -> Option<(String, Vec<Node>)> {
     return Some((unconsumed, vec![output]));
 }
 
-fn parse_blank_line(raw: String) -> Option<(String, Vec<Node>)> {
+fn parse_blank_line(raw: String) -> Option<(String, Tree)> {
     // just emit a token
     let mut unconsumed = raw;
 
@@ -180,7 +180,7 @@ fn parse_blank_line(raw: String) -> Option<(String, Vec<Node>)> {
     return Some((unconsumed, vec![output]));
 }
 
-fn parse_list_item(raw: String) -> Option<(String, Vec<Node>)> {
+fn parse_list_item(raw: String) -> Option<(String, Tree)> {
     return None;
 }
 
@@ -212,18 +212,18 @@ fn parse_list(raw: String) -> Option<(String, Vec<Node>)> {
 }
 
 fn parse_document(path: &str) -> Tree {
-    let parse_fns: Vec<&dyn Fn(String) -> Option<(String, Vec<Node>)>> =
+    let parse_fns: Vec<&dyn Fn(String) -> Option<(String, Tree)>> =
         vec![&parse_atx_header, &parse_blank_line, &parse_paragraph];
     let raw = read_to_string(path).expect("");
     let mut root = Node::new(NodeType::DOCUMENT);
 
+    let root_id = root.id.clone();
     root.data = NodeData::DocumentData {
         path: String::from(path),
         loaded: true,
     };
-    let mut output = Tree::new();
+    let mut output = Tree::new(root);
     output.path = path.into();
-    output.root_node = root.id.clone();
 
     let mut to_parse = String::from(&raw);
 
@@ -236,18 +236,19 @@ fn parse_document(path: &str) -> Tree {
             let result = f(to_parse.clone());
 
             if result.is_some() {
-                let (remaining, node) = result.unwrap();
+                let (remaining, subtree) = result.unwrap();
                 to_parse = remaining;
 
-                if node.node_type == NodeType::None {
+                let child_root = subtree.get_root();
+
+                if child_root.node_type == NodeType::None {
                     break;
                 }
-                root.children.push(node.id.clone());
-                output.nodes.insert(node.id.clone(), node);
+
+                output.insert_child_under(subtree, root_id.clone());
             }
         }
     }
-    output.nodes.insert(root.id.clone(), root);
 
     return output;
 }
