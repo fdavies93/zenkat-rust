@@ -26,7 +26,7 @@ impl Tree {
         return Tree {
             name: String::new(),
             root_node: root_id.clone(),
-            nodes: HashMap::new(),
+            nodes,
         };
     }
 

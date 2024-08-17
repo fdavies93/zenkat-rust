@@ -192,7 +192,7 @@ fn parse_list(raw: String) -> Option<(String, Tree)> {
     loop {
         let option = parse_list_item(unconsumed.clone());
         match option {
-            Some((new_raw, mut output)) => {
+            Some((new_raw, output)) => {
                 unconsumed = new_raw.clone();
                 working_tree.insert_child_under(output, working_tree.get_root_id());
                 have_items = true;
@@ -206,8 +206,6 @@ fn parse_list(raw: String) -> Option<(String, Tree)> {
     if !have_items {
         return None;
     }
-
-    let mut list_node = Node::new(NodeType::LIST);
 
     return Some((unconsumed, working_tree));
 }
@@ -234,7 +232,6 @@ fn parse_document(path: &str) -> Tree {
 
         for f in &parse_fns {
             let result = f(to_parse.clone());
-
             if result.is_some() {
                 let (remaining, subtree) = result.unwrap();
                 to_parse = remaining;
