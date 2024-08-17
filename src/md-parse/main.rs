@@ -180,8 +180,58 @@ fn parse_blank_line(raw: String) -> Option<(String, Tree)> {
     return Some((unconsumed, Tree::new(output)));
 }
 
-fn parse_list_item(raw: String) -> Option<(String, Tree)> {
+fn parse_list_item_content(raw: String) -> (String, String) {
+    return (String::new(), String::new());
+}
+
+fn parse_ordered_list_item_bullet(raw: String) -> Option<(String, ListType)> {
+    let mut buffer: String = String::new();
+
     return None;
+}
+
+fn parse_unordered_list_item_bullet(raw: String) -> Option<(String, ListType)> {
+    return None;
+}
+
+fn parse_list_item_bullet(raw: String) -> Option<(String, ListType)> {
+    return None;
+}
+
+fn parse_list_item(raw: String) -> Option<(String, Tree)> {
+    let mut unconsumed = raw;
+
+    // skip leading whitespace
+    loop {
+        if unconsumed.is_empty() {
+            break;
+        }
+        let next_char = unconsumed.chars().next().unwrap();
+        if next_char == ' ' || next_char == '\t' || next_char == '\r' {
+            let (_, suffix) = unconsumed.split_at(next_char.len_utf8());
+            unconsumed = String::from(suffix);
+        }
+    }
+    // get which type of list item it is
+    let list_type = match parse_list_item_bullet(unconsumed.clone()) {
+        Some((out, lt)) => {
+            unconsumed = out;
+            lt
+        }
+        None => return None,
+    };
+
+    let (unconsumed, content) = parse_list_item_content(unconsumed);
+
+    let mut node = Node::new(NodeType::LIST_ITEM);
+    let data = NodeData::ListItemData {
+        list_type,
+        text: content,
+    };
+
+    node.data = data;
+    let tree = Tree::new(node);
+    return Some((unconsumed, tree));
 }
 
 fn parse_list(raw: String) -> Option<(String, Tree)> {

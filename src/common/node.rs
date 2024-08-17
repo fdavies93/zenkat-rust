@@ -29,7 +29,7 @@ pub enum NodeData {
     DocumentData { path: String, loaded: bool },
     ParagraphData { text: String },
     ListData { list_type: ListType },
-    ListItemData { list_type: ListType },
+    ListItemData { list_type: ListType, text: String },
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
