@@ -24,12 +24,28 @@ pub enum ListType {
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum NodeData {
     None,
-    HeaderData { text: String, level: u8 },
-    DirectoryData { path: String },
-    DocumentData { path: String, loaded: bool },
-    ParagraphData { text: String },
-    ListData { list_type: ListType },
-    ListItemData { list_type: ListType, text: String },
+    HeaderData {
+        text: String,
+        level: u8,
+    },
+    DirectoryData {
+        path: String,
+    },
+    DocumentData {
+        path: String,
+        loaded: bool,
+    },
+    ParagraphData {
+        text: String,
+    },
+    ListData {
+        list_type: ListType,
+    },
+    ListItemData {
+        list_type: ListType,
+        text: String,
+        indent: usize,
+    },
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]

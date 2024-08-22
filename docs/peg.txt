@@ -1,0 +1,18 @@
+document => block*
+block =>  paragraph 
+		| list 
+		| atx_heading 
+		| setext_heading 
+		| break 
+		| code_block_indented 
+		| code_block_fenced 
+		| link_reference_definition 
+		| quote_block
+
+paragraph => (text | inline_element)+
+list => ordered_list | unordered_list
+ordered_list => ordered_list_item+
+unordered_list => unordered_list_item+
+atx_heading => '#'+ ~ '\s'+ ~ inline_content
+setext_heading => inline_content ~ '\n' ~ (('--' ~ '-'+) | '**' ~ '*'+) | ('__' ~ '_'+) )
+code_block_indented => ('\t' | ' ' ~ ' '+) # awkward since relative to parent block, unclear if this can be expressed with a naive PEG

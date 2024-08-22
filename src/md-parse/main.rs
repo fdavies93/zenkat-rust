@@ -16,7 +16,6 @@ struct Args {
     path: String,
 }
 
-// Maybe make everything return a tree and write tree manipulation functions
 fn parse_atx_header(raw: String) -> Option<(String, Tree)> {
     let mut unconsumed = raw;
     let mut buffer = String::new();
@@ -184,23 +183,33 @@ fn parse_list_item_content(raw: String) -> (String, String) {
     return (String::new(), String::new());
 }
 
-fn parse_ordered_list_item_bullet(raw: String) -> Option<(String, ListType)> {
+fn parse_ordered_list_item_bullet(raw: String) -> Option<(String)> {
     let mut buffer: String = String::new();
 
     return None;
 }
 
-fn parse_unordered_list_item_bullet(raw: String) -> Option<(String, ListType)> {
+fn parse_unordered_list_item_bullet(raw: String) -> Option<(String)> {
     return None;
 }
 
 fn parse_list_item_bullet(raw: String) -> Option<(String, ListType)> {
-    return None;
+    let ordered = parse_ordered_list_item_bullet(raw.clone());
+    match ordered {
+        Some(unconsumed) => return Some((unconsumed, ListType::ORDERED_LIST)),
+        None => (),
+    }
+
+    let unordered = parse_unordered_list_item_bullet(raw.clone());
+    match unordered {
+        Some(unconsumed) => return Some((unconsumed, ListType::UNORDERED_LIST)),
+        None => return None,
+    }
 }
 
 fn parse_list_item(raw: String) -> Option<(String, Tree)> {
     let mut unconsumed = raw;
-
+    let mut buffer = String::new();
     // skip leading whitespace
     loop {
         if unconsumed.is_empty() {
@@ -208,10 +217,12 @@ fn parse_list_item(raw: String) -> Option<(String, Tree)> {
         }
         let next_char = unconsumed.chars().next().unwrap();
         if next_char == ' ' || next_char == '\t' || next_char == '\r' {
-            let (_, suffix) = unconsumed.split_at(next_char.len_utf8());
+            let (prefix, suffix) = unconsumed.split_at(next_char.len_utf8());
+            buffer.push_str(prefix);
             unconsumed = String::from(suffix);
         }
     }
+    let indent = buffer.len();
     // get which type of list item it is
     let list_type = match parse_list_item_bullet(unconsumed.clone()) {
         Some((out, lt)) => {
@@ -221,12 +232,15 @@ fn parse_list_item(raw: String) -> Option<(String, Tree)> {
         None => return None,
     };
 
+    // this is a little 'interesting' due to the presence of
+    // loose lists in the markdown spec
     let (unconsumed, content) = parse_list_item_content(unconsumed);
 
     let mut node = Node::new(NodeType::LIST_ITEM);
     let data = NodeData::ListItemData {
         list_type,
         text: content,
+        indent,
     };
 
     node.data = data;
