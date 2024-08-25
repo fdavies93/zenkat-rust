@@ -179,24 +179,92 @@ fn parse_blank_line(raw: String) -> Option<(String, Tree)> {
     return Some((unconsumed, Tree::new(output)));
 }
 
+fn parse_uint(raw: String) -> Option<(String, u64)> {
+    let mut unconsumed = raw;
+    let mut buffer: String = String::new();
+
+    loop {
+        if unconsumed.is_empty() {
+            break;
+        }
+        let next_char = unconsumed.chars().next().unwrap();
+
+        if !next_char.is_digit(10) {
+            break;
+        }
+
+        let (_, suffix) = unconsumed.split_at(next_char.len_utf8());
+
+        buffer.push(next_char);
+        unconsumed = suffix.into();
+    }
+
+    if buffer.len() == 0 {
+        return None;
+    }
+
+    let integer: u64 = buffer.parse().unwrap();
+
+    return Some((unconsumed, integer));
+}
+
 fn parse_list_item_content(raw: String) -> (String, String) {
     return (String::new(), String::new());
 }
 
-fn parse_ordered_list_item_bullet(raw: String) -> Option<(String)> {
-    let mut buffer: String = String::new();
-
+fn parse_in(raw: String, options: Vec<char>) -> Option<(String, char)> {
+    let unconsumed = raw;
+    if unconsumed.is_empty() {
+        return None;
+    }
+    let next_char = unconsumed.chars().next().unwrap();
+    for option in options {
+        if next_char == option {
+            let (_, suffix) = unconsumed.split_at(next_char.len_utf8());
+            return Some((suffix.into(), next_char));
+        }
+    }
     return None;
 }
 
-fn parse_unordered_list_item_bullet(raw: String) -> Option<(String)> {
-    return None;
+fn parse_ordered_list_item_bullet(raw: String) -> Option<(String, u64)> {
+    let mut unconsumed = raw;
+    let li_num: u64;
+
+    match parse_uint(unconsumed) {
+        Some((stream, number)) => {
+            unconsumed = stream;
+            li_num = number;
+        }
+        None => return None,
+    }
+
+    match parse_in(unconsumed, vec!['.', ')']) {
+        Some((stream, _delimiter)) => {
+            unconsumed = stream;
+        }
+        None => return None,
+    }
+
+    return Some((unconsumed, li_num));
+}
+
+fn parse_unordered_list_item_bullet(raw: String) -> Option<String> {
+    let mut unconsumed = raw;
+
+    match parse_in(unconsumed, vec!['-', '*']) {
+        Some((stream, _delimiter)) => {
+            unconsumed = stream;
+        }
+        None => return None,
+    }
+    return Some(unconsumed);
 }
 
 fn parse_list_item_bullet(raw: String) -> Option<(String, ListType)> {
     let ordered = parse_ordered_list_item_bullet(raw.clone());
     match ordered {
-        Some(unconsumed) => return Some((unconsumed, ListType::ORDERED_LIST)),
+        Some((unconsumed, _num)) => return Some((unconsumed, ListType::ORDERED_LIST)),
         None => (),
     }
 
@@ -275,8 +343,12 @@ fn parse_list(raw: String) -> Option<(String, Tree)> {
 }
 
 fn parse_document(path: &str) -> Tree {
-    let parse_fns: Vec<&dyn Fn(String) -> Option<(String, Tree)>> =
-        vec![&parse_atx_header, &parse_blank_line, &parse_paragraph];
+    let parse_fns: Vec<&dyn Fn(String) -> Option<(String, Tree)>> = vec![
+        &parse_atx_header,
+        &parse_list,
+        &parse_blank_line,
+        &parse_paragraph,
+    ];
     let raw = read_to_string(path).expect("");
     let mut root = Node::new(NodeType::DOCUMENT);
 
