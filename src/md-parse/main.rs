@@ -164,7 +164,7 @@ fn parse_blank_line(raw: String) -> Option<(String, Tree)> {
 
         let next_char = unconsumed.chars().next().unwrap();
 
-        if next_char == ' ' || next_char == '\t' || next_char == '\r' {
+        if next_char == ' ' || next_char == '\t' {
             // i.e. ignore
             let (_, suffix) = unconsumed.split_at(next_char.len_utf8());
             unconsumed = String::from(suffix);
@@ -212,7 +212,7 @@ fn parse_list_item_content(raw: String) -> (String, String) {
     return (String::new(), String::new());
 }
 
-fn parse_in(raw: String, options: Vec<char>) -> Option<(String, char)> {
+fn one_of(raw: String, options: Vec<char>) -> Option<(String, char)> {
     let unconsumed = raw;
     if unconsumed.is_empty() {
         return None;
@@ -227,6 +227,20 @@ fn parse_in(raw: String, options: Vec<char>) -> Option<(String, char)> {
     return None;
 }
 
+fn one(chr: char) -> Box<dyn Fn(String) -> Option<String>> {
+    Box::new(move |raw: String| -> Option<String> {
+        if raw.is_empty() {
+            return None;
+        }
+        let next_char = raw.chars().next().unwrap();
+        if next_char != chr {
+            return None;
+        }
+        let (_, suffix) = raw.split_at(next_char.len_utf8());
+        return Some(suffix.into());
+    })
+}
+
 fn parse_ordered_list_item_bullet(raw: String) -> Option<(String, u64)> {
     let mut unconsumed = raw;
     let li_num: u64;
@@ -239,7 +253,7 @@ fn parse_ordered_list_item_bullet(raw: String) -> Option<(String, u64)> {
         None => return None,
     }
 
-    match parse_in(unconsumed, vec!['.', ')']) {
+    match one_of(unconsumed, vec!['.', ')']) {
         Some((stream, _delimiter)) => {
             unconsumed = stream;
         }
@@ -252,7 +266,7 @@ fn parse_ordered_list_item_bullet(raw: String) -> Option<(String, u64)> {
 fn parse_unordered_list_item_bullet(raw: String) -> Option<String> {
     let mut unconsumed = raw;
 
-    match parse_in(unconsumed, vec!['-', '*']) {
+    match one_of(unconsumed, vec!['-', '*']) {
         Some((stream, _delimiter)) => {
             unconsumed = stream;
         }
@@ -284,7 +298,7 @@ fn parse_list_item(raw: String) -> Option<(String, Tree)> {
             break;
         }
         let next_char = unconsumed.chars().next().unwrap();
-        if next_char == ' ' || next_char == '\t' || next_char == '\r' {
+        if next_char == ' ' || next_char == '\t' {
             let (prefix, suffix) = unconsumed.split_at(next_char.len_utf8());
             buffer.push_str(prefix);
             unconsumed = String::from(suffix);

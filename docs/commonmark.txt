@@ -1,0 +1,38 @@
+# This is intended to be a reflection of the commonmark parser grammar.
+# It's not in any particular syntax.
+# := means LET
+# ~ means JOIN
+# | means OR
+# ^ means NOT
+# others follow common regexp meanings
+
+# BLOCK LEVEL PARSING
+
+document := block*
+block := atx_header | list | blank_line | paragraph
+
+# https://spec.commonmark.org/0.31.2/#thematic-breaks
+thematic_break := ('**' ~ '*'+ | '--' ~ '-'+ | '__' ~ '_'+)
+
+# https://spec.commonmark.org/0.31.2/#atx-headings
+atx_header := '\n'? ~ [ \t]* ~ '#'+ ~ [ \t]+ ~ ^('\n')*
+
+# https://spec.commonmark.org/0.31.2/#lists
+list := list_item+
+
+# https://spec.commonmark.org/0.31.2/#blank-lines
+blank_line := '\n' ~ [ \t]* # break on \n
+
+# https://spec.commonmark.org/0.31.2/#paragraphs
+paragraph := '\n'? ~ ^('\n\n')
+
+# to be part of the same list it must at least be in the same column
+# as the bullet + 1
+# iff there's only one block and it's a paragraph, treat it as part 
+# of the list item (to implement tight lists)
+# https://spec.commonmark.org/0.31.2/#list-items
+list_item := '\n'? ~ [ \t]* ~ li_bullet ~ block+
+li_bullet := ordered_li_bullet | unordered_li_bullet
+ordered_li_bullet := uint ~ [.)]
+unordered_li_bullet := [-*+]
+uint := [0-9]+
