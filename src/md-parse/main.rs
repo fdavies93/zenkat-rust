@@ -1,7 +1,7 @@
 use async_process::Output;
 use clap::Parser;
 use serde_json::to_string;
-use std::borrow::Borrow;
+use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::io::{self, Write};
@@ -241,6 +241,35 @@ fn one(chr: char) -> Box<dyn Fn(String) -> Option<String>> {
     })
 }
 
+fn any(chrs: &'static str) -> Box<dyn Fn(String) -> Option<(String, char)>> {
+    Box::new(move |raw: String| -> Option<(String, char)> {
+        if raw.is_empty() {
+            return None;
+        }
+
+        let next_char = raw.chars().next().unwrap();
+        for chr in chrs.chars() {
+            if next_char == chr {
+                let (_, suffix) = raw.split_at(next_char.len_utf8());
+                return Some((suffix.into(), chr));
+            }
+        }
+        return None;
+    })
+}
+
+fn many0<T>(
+    input_fn: Box<dyn Fn(String) -> Option<(String, T)>>,
+) -> Box<dyn Fn(String) -> Option<(String, Vec<T>)>> {
+    Box::new(move |raw: String| -> Option<(String, Vec<T>)> {
+        let output: Vec<T> = vec![];
+        loop {
+            let result = input_fn(raw.clone());
+        }
+        return Some((raw, output));
+    })
+}
+
 fn parse_ordered_list_item_bullet(raw: String) -> Option<(String, u64)> {
     let mut unconsumed = raw;
     let li_num: u64;
@@ -263,16 +292,8 @@ fn parse_ordered_list_item_bullet(raw: String) -> Option<(String, u64)> {
     return Some((unconsumed, li_num));
 }
 
-fn parse_unordered_list_item_bullet(raw: String) -> Option<String> {
-    let mut unconsumed = raw;
-
-    match one_of(unconsumed, vec!['-', '*']) {
-        Some((stream, _delimiter)) => {
-            unconsumed = stream;
-        }
-        None => return None,
-    }
-    return Some(unconsumed);
+fn parse_unordered_list_item_bullet(raw: String) -> Option<(String, char)> {
+    any("-*+")(raw)
 }
 
 fn parse_list_item_bullet(raw: String) -> Option<(String, ListType)> {

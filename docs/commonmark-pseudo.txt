@@ -1,0 +1,80 @@
+// NOTE: there's no variadic tuples in Rust
+// and therefore no splat operator
+
+// uint
+many1(
+	any(
+		*range('0','9')
+	)
+)
+// with currying
+// equivalent to [0-9]+
+// any_in_range should be equivalent to any( range('0','9') )
+many1(
+	any_in_range('0','9')
+)
+
+// unordered_li_bullet
+any("-*+")
+
+// ordered_li_bullet
+concat(vec![
+	uint,
+	any(".)")
+])
+
+// paragraph
+concat(
+	optional('\n'),
+	not( match("\n\n") )
+)
+
+// atx header
+// atx_header := '\n'? ~ [ \t]* ~ '#'+ ~ [ \t]+ ~ ^('\n')*
+concat(vec![
+	optional(one('\n')),
+	many0(
+		any(" \t")
+	),
+	many1(
+		one('#')
+	),
+	many1(
+		any(" \t")
+	),
+	many0(
+		not(one('\n'))
+	)
+])
+
+// thematic_break
+or (vec![
+	concat(vec![ 
+		match("**"),
+		many1(one('*'))  
+	]),
+	concat(vec![
+		match("--"),
+		many1(one('-'))
+	]),	
+	concat(vec![
+		match("__"),
+		many1(one('_'))
+	]),
+])
+
+fn any() {
+}
+
+fn one() {
+
+}
+
+fn range() {
+
+}
+
+fn any_in_range(start, end) {
+	let chars = range(start, end);
+	any(chars)
+}
