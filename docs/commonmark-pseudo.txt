@@ -48,20 +48,27 @@ concat(vec![
 ])
 
 // thematic_break
-or (vec![
-	concat(vec![ 
-		match("**"),
-		many1(one('*'))  
-	]),
-	concat(vec![
-		match("--"),
-		many1(one('-'))
-	]),	
-	concat(vec![
-		match("__"),
-		many1(one('_'))
-	]),
-])
+join (
+	optional(one('\n')),
+	many0(
+		any(' \t')
+	),
+	or (vec![
+		concat(vec![ 
+			exact("**"),
+			many1(one('*'))  
+		]),
+		concat(vec![
+			exact("--"),
+			many1(one('-'))
+		]),	
+		concat(vec![
+			exact("__"),
+			many1(one('_'))
+		]),
+	])
+
+)
 
 fn any() {
 }

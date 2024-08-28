@@ -5,6 +5,7 @@ use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::io::{self, Write};
+use std::rc::Rc;
 
 #[path = "../common.rs"]
 mod common;
@@ -227,8 +228,8 @@ fn one_of(raw: String, options: Vec<char>) -> Option<(String, char)> {
     return None;
 }
 
-fn one(chr: char) -> Box<dyn Fn(String) -> Option<String>> {
-    Box::new(move |raw: String| -> Option<String> {
+fn one(chr: char) -> Box<dyn Fn(String) -> Option<(String, char)>> {
+    Box::new(move |raw: String| -> Option<(String, char)> {
         if raw.is_empty() {
             return None;
         }
@@ -237,7 +238,26 @@ fn one(chr: char) -> Box<dyn Fn(String) -> Option<String>> {
             return None;
         }
         let (_, suffix) = raw.split_at(next_char.len_utf8());
-        return Some(suffix.into());
+        return Some((suffix.into(), chr));
+    })
+}
+
+fn exact(chrs: &'static str) -> Box<dyn Fn(String) -> Option<(String, &'static str)>> {
+    Box::new(move |raw: String| -> Option<(String, &'static str)> {
+        let mut unconsumed = raw.clone();
+        if unconsumed.is_empty() {
+            return None;
+        }
+
+        for chr in chrs.chars() {
+            let next_char = unconsumed.chars().next().unwrap();
+            if next_char != chr {
+                return None;
+            }
+            let (_, suffix) = unconsumed.split_at(next_char.len_utf8());
+            unconsumed = suffix.into();
+        }
+        return Some((unconsumed, chrs));
     })
 }
 
@@ -258,16 +278,66 @@ fn any(chrs: &'static str) -> Box<dyn Fn(String) -> Option<(String, char)>> {
     })
 }
 
-fn many0<T>(
+fn many0<T: 'static>(
     input_fn: Box<dyn Fn(String) -> Option<(String, T)>>,
 ) -> Box<dyn Fn(String) -> Option<(String, Vec<T>)>> {
     Box::new(move |raw: String| -> Option<(String, Vec<T>)> {
-        let output: Vec<T> = vec![];
+        let mut output: Vec<T> = vec![];
+        let mut unconsumed: String = raw.clone();
         loop {
-            let result = input_fn(raw.clone());
+            let result = input_fn(unconsumed.clone());
+            match result {
+                Some((new_str, item)) => {
+                    unconsumed = new_str;
+                    output.push(item);
+                }
+                None => {
+                    break;
+                }
+            }
         }
-        return Some((raw, output));
+        return Some((unconsumed, output));
     })
+}
+
+fn many1<T: 'static>(
+    input_fn: Box<dyn Fn(String) -> Option<(String, T)>>,
+) -> Box<dyn Fn(String) -> Option<(String, Vec<T>)>> {
+    Box::new(move |raw: String| -> Option<(String, Vec<T>)> {
+        let mut output: Vec<T> = vec![];
+        let mut unconsumed: String = raw.clone();
+        loop {
+            let result = input_fn(unconsumed.clone());
+            match result {
+                Some((new_str, item)) => {
+                    unconsumed = new_str;
+                    output.push(item);
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+        if output.len() == 0 {
+            return None;
+        }
+        return Some((unconsumed, output));
+    })
+}
+
+// tricky: we don't know that every input function has the same
+// types, and they probably don't
+fn join<T: 'static>(
+    input_fns: Vec<Box<dyn Fn(String) -> Option<(String, T)>>>,
+) -> Box<dyn Fn(String) -> Option<(String, Vec<T>)>> {
+    Box::new(move |raw: String| -> Option<(String, Vec<T>)> {
+        return None;
+    })
+}
+
+fn whitespace(input: String) -> Option<(String, Vec<char>)> {
+    let parser = many0(any(" \t"));
+    parser(input)
 }
 
 fn parse_ordered_list_item_bullet(raw: String) -> Option<(String, u64)> {
