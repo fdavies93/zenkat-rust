@@ -2,10 +2,12 @@ use clap::Parser;
 use nom::branch::alt;
 use nom::bytes::complete::{is_a, tag, take, take_till, take_until};
 use nom::character::complete::{
-    alphanumeric0, anychar, char, line_ending, not_line_ending, space0,
+    alphanumeric0, anychar, char, line_ending, not_line_ending, space0, space1,
 };
+use nom::character::is_space;
 use nom::combinator::{eof, not, opt, rest};
-use nom::multi::{fold_many0, many0, many1, many_till};
+use nom::error::ErrorKind;
+use nom::multi::{fold_many0, many0, many1, many1_count, many_till};
 use nom::sequence::{terminated, tuple};
 use serde_json::to_string;
 use std::fs::{self, read_to_string};
@@ -47,6 +49,38 @@ fn blank_line(raw: &str) -> IResult<&str, Tree> {
     }
 }
 
+fn atx_header(raw: &str) -> IResult<&str, Tree> {
+    let mut parser = tuple((
+        space0,
+        many1_count(char('#')),
+        space1,
+        many_till(
+            anychar,
+            line_ending,
+        ),
+    ));
+    let result = parser(raw);
+    match result {
+        Ok((stream, results)) => {
+            let mut node = Node::new(NodeType::HEADER);
+            let ack: (
+                Vec<char>,
+                &str,
+            ) = results.3;
+            let content: String = ack.0.iter().collect();
+            node.data = NodeData::HeaderData {
+                text: content,
+                level: results.1,
+            };
+            return Ok((
+                stream,
+                Tree::new(node),
+            ));
+        }
+        Err(e) => return Err(e),
+    }
+}
+
 fn paragraph(raw: &str) -> IResult<&str, Tree> {
     // This is a decent example for transforming a character specification into
     // a unit of meaning
@@ -70,7 +104,7 @@ fn paragraph(raw: &str) -> IResult<&str, Tree> {
 
 fn block(raw: &str) -> IResult<&str, Tree> {
     return alt((
-        blank_line, paragraph,
+        atx_header, blank_line, paragraph,
     ))(raw);
 }
 

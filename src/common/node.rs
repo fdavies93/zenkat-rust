@@ -26,7 +26,7 @@ pub enum NodeData {
     None,
     HeaderData {
         text: String,
-        level: u8,
+        level: usize,
     },
     DirectoryData {
         path: String,
