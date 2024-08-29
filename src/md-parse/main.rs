@@ -131,8 +131,13 @@ fn document(raw: &str) -> IResult<&str, Tree> {
 fn main() {
     let args = Args::parse();
 
-    let str = read_to_string(args.path).unwrap();
-    let tree = document(str.as_str()).unwrap();
+    let str = read_to_string(args.path.clone()).unwrap();
+    let (_, mut tree) = document(str.as_str()).unwrap();
+    let root = tree.get_node_mut(tree.root_node.clone());
+    root.unwrap().data = NodeData::DocumentData {
+        path: args.path.clone(),
+        loaded: false,
+    };
 
     let json = to_string(&tree).expect("");
 

@@ -21,7 +21,10 @@ impl Tree {
     pub fn new(root: Node) -> Tree {
         let mut nodes = HashMap::new();
         let root_id = root.id.clone();
-        nodes.insert(root.id.clone(), root);
+        nodes.insert(
+            root.id.clone(),
+            root,
+        );
 
         return Tree {
             name: String::new(),
@@ -55,7 +58,10 @@ impl Tree {
                 let target_node = self.get_node_mut(target_id.clone()).unwrap();
                 target_node.children.push(child_root_id.clone());
             }
-            self.nodes.insert(node_id.clone(), node);
+            self.nodes.insert(
+                node_id.clone(),
+                node,
+            );
         }
     }
 
@@ -74,7 +80,9 @@ impl Tree {
                 target_node.children = node.children;
             } else {
                 // we don't need to copy the root of the subtree
-                self.nodes.insert(node_id, node);
+                self.nodes.insert(
+                    node_id, node,
+                );
             }
         }
         return Ok(());
@@ -95,7 +103,10 @@ impl Tree {
             let cur_path = Path::new(&path_str);
             let mut cur_node: Node = Node::new(NodeType::None);
             let cur_node_id: String = cur_node.id.clone();
-            println!("{}", path_str);
+            println!(
+                "{}",
+                path_str
+            );
             if !cur_path.exists() {
                 continue;
             } else if cur_path.is_symlink() && !traverse_symbolic {
@@ -109,7 +120,10 @@ impl Tree {
                     path: cur_path.to_str()?.into(),
                     loaded: false,
                 };
-                tree.nodes.insert(cur_node_id.clone(), cur_node);
+                tree.nodes.insert(
+                    cur_node_id.clone(),
+                    cur_node,
+                );
             } else if cur_path.is_dir() {
                 cur_node.node_type = NodeType::DIRECTORY;
                 cur_node.data = NodeData::DirectoryData {
@@ -121,9 +135,15 @@ impl Tree {
                     let c_path = child.ok()?.path();
                     let c_path_str: String = c_path.to_str()?.into();
                     queue.push_back(c_path_str.clone());
-                    parents.insert(c_path_str, cur_node_id.clone());
+                    parents.insert(
+                        c_path_str,
+                        cur_node_id.clone(),
+                    );
                 }
-                tree.nodes.insert(cur_node_id.clone(), cur_node);
+                tree.nodes.insert(
+                    cur_node_id.clone(),
+                    cur_node,
+                );
             }
             // link the parents to the children by ID using hash table
             let parent_id = parents.get(&path_str);
@@ -159,8 +179,16 @@ impl Tree {
             match node.data.clone() {
                 NodeData::DocumentData { path, loaded } => {
                     if !loaded {
-                        path_to_id.insert(path.clone(), node.id.clone());
-                        set.spawn(Tree::load_document(path.clone(), parser.clone()));
+                        path_to_id.insert(
+                            path.clone(),
+                            node.id.clone(),
+                        );
+                        set.spawn(
+                            Tree::load_document(
+                                path.clone(),
+                                parser.clone(),
+                            ),
+                        );
                     }
                 }
                 _ => {}
@@ -173,7 +201,9 @@ impl Tree {
         while let Some(res) = set.join_next().await {
             counted += 1;
 
-            let mut doc_tree = Tree::new(Node::new(NodeType::None));
+            let mut doc_tree = Tree::new(Node::new(
+                NodeType::None,
+            ));
             match res {
                 Ok(res_ok) => {
                     doc_tree = res_ok;
@@ -207,9 +237,16 @@ impl Tree {
                 if node_id.clone() == root_id {
                     continue;
                 }
-                self.nodes.insert(node_id.clone(), node.clone());
+                self.nodes.insert(
+                    node_id.clone(),
+                    node.clone(),
+                );
             }
         }
-        println!("Loaded {} documents in {:.4?}.", counted, before.elapsed());
+        println!(
+            "Loaded {} documents in {:.4?}.",
+            counted,
+            before.elapsed()
+        );
     }
 }

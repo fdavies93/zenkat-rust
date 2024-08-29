@@ -51,15 +51,27 @@ fn visualise_tree(tree: &Tree, cur_node_id: String, cur_depth: usize) {
         NodeData::DocumentData { path, loaded: _ } => {
             content = path.clone();
         }
-        NodeData::HeaderData { text, level } => content = format!("<h{}> {}", level, text),
+        NodeData::HeaderData { text, level } => {
+            content = format!(
+                "<h{}> {}",
+                level, text
+            )
+        }
         NodeData::ParagraphData { text: _ } => content = "<p>".into(),
         _ => {}
     }
 
-    println!("{}{}", indent, content);
+    println!(
+        "{}{}",
+        indent, content
+    );
 
     for child in cur_node.children.iter() {
-        visualise_tree(tree, child.clone(), cur_depth + 1);
+        visualise_tree(
+            tree,
+            child.clone(),
+            cur_depth + 1,
+        );
     }
 }
 
@@ -71,15 +83,26 @@ fn render_tree_html(tree: &Tree, cur_node_id: String, cur_depth: usize) {
         NodeData::DocumentData { path: _, loaded: _ } => {
             println!("<html><head><link rel=\"stylesheet\" href=\"https://cdn.simplecss.org/simple.min.css\"></head><body>");
             for child in cur_node.children.iter() {
-                render_tree_html(tree, child.clone(), cur_depth + 1)
+                println!("child");
+                render_tree_html(
+                    tree,
+                    child.clone(),
+                    cur_depth + 1,
+                )
             }
             println!("</body></html>");
         }
         NodeData::HeaderData { text, level } => {
-            println!("{}<h{}>{}</h{}>", indent, level, text, level);
+            println!(
+                "{}<h{}>{}</h{}>",
+                indent, level, text, level
+            );
         }
         NodeData::ParagraphData { text } => {
-            println!("{}<p>{}</p>", indent, text)
+            println!(
+                "{}<p>{}</p>",
+                indent, text
+            )
         }
         _ => {}
     }
@@ -112,7 +135,11 @@ async fn main() {
                 .json()
                 .await
                 .unwrap();
-            visualise_tree(&tree, tree.root_node.clone(), 0);
+            visualise_tree(
+                &tree,
+                tree.root_node.clone(),
+                0,
+            );
         }
         Command::Html {
             path: path_str,
@@ -120,8 +147,16 @@ async fn main() {
         } => {
             let path = Path::new(path_str);
             if path.is_file() && path.extension().unwrap() == "md" {
-                let tree = Tree::load_document(path_str.clone(), parser.clone()).await;
-                render_tree_html(&tree, tree.root_node.clone(), 0);
+                let tree = Tree::load_document(
+                    path_str.clone(),
+                    parser.clone(),
+                )
+                .await;
+                render_tree_html(
+                    &tree,
+                    tree.root_node.clone(),
+                    0,
+                );
             }
         }
     };
