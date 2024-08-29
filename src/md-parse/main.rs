@@ -27,7 +27,10 @@ fn blank_line(raw: &str) -> IResult<&str, Tree> {
         line_ending,
         terminated(
             space0,
-            line_ending,
+            alt((
+                line_ending,
+                eof,
+            )),
         ),
     ))(raw);
     match result {
