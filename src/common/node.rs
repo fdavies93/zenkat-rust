@@ -10,6 +10,7 @@ pub enum NodeType {
     DOCUMENT,
     PARAGRAPH,
     HEADER,
+    THEMATIC_BREAK,
     LIST_ITEM,
     LIST,
     None, // used in parsing to indicate "consume token but don't email anything"
@@ -46,6 +47,7 @@ pub enum NodeData {
         text: String,
         indent: usize,
     },
+    ThematicBreakData {},
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]

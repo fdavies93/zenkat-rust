@@ -81,7 +81,11 @@ fn render_tree_html(tree: &Tree, cur_node_id: String, cur_depth: usize) {
 
     match cur_node.data.clone() {
         NodeData::DocumentData { path: _, loaded: _ } => {
-            println!("<html><head><link rel=\"stylesheet\" href=\"https://cdn.simplecss.org/simple.min.css\"></head><body>");
+            println!(
+                "<html><head>
+                <link rel=\"stylesheet\" href=\"https://unpkg.com/mvp.css\">
+                </head><body><main>"
+            );
             for child in cur_node.children.iter() {
                 render_tree_html(
                     tree,
@@ -89,7 +93,7 @@ fn render_tree_html(tree: &Tree, cur_node_id: String, cur_depth: usize) {
                     cur_depth + 1,
                 )
             }
-            println!("</body></html>");
+            println!("</main></body></html>");
         }
         NodeData::HeaderData { text, level } => {
             println!(
@@ -102,6 +106,9 @@ fn render_tree_html(tree: &Tree, cur_node_id: String, cur_depth: usize) {
                 "{}<p>{}</p>",
                 indent, text
             )
+        }
+        NodeData::ThematicBreakData {} => {
+            println!("<hr>")
         }
         _ => {}
     }

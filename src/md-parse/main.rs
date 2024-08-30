@@ -5,9 +5,10 @@ use nom::character::complete::{
     alphanumeric0, anychar, char, line_ending, not_line_ending, space0, space1,
 };
 use nom::character::is_space;
+use nom::character::streaming::one_of;
 use nom::combinator::{eof, not, opt, rest};
 use nom::error::ErrorKind;
-use nom::multi::{fold_many0, many0, many1, many1_count, many_till};
+use nom::multi::{fold_many0, many0, many1, many1_count, many_m_n, many_till};
 use nom::sequence::{terminated, tuple};
 use serde_json::to_string;
 use std::fs::{self, read_to_string};
@@ -49,10 +50,22 @@ fn blank_line(raw: &str) -> IResult<&str, Tree> {
     }
 }
 
+fn little_indent(raw: &str) -> IResult<&str, Vec<char>> {
+    many_m_n(
+        0,
+        3,
+        char(' '),
+    )(raw)
+}
+
 fn atx_header(raw: &str) -> IResult<&str, Tree> {
     let mut parser = tuple((
-        space0,
-        many1_count(char('#')),
+        little_indent,
+        many_m_n(
+            1,
+            6,
+            char('#'),
+        ),
         space1,
         many_till(
             anychar,
@@ -70,7 +83,7 @@ fn atx_header(raw: &str) -> IResult<&str, Tree> {
             let content: String = ack.0.iter().collect();
             node.data = NodeData::HeaderData {
                 text: content,
-                level: results.1,
+                level: results.1.len(),
             };
             return Ok((
                 stream,
@@ -81,17 +94,77 @@ fn atx_header(raw: &str) -> IResult<&str, Tree> {
     }
 }
 
+fn thematic_break(raw: &str) -> IResult<&str, Tree> {
+    let result = terminated(
+        tuple((
+            little_indent,
+            // commonmark spec is that spaces are allowed
+            // between the thematic break characters
+            alt((
+                tuple((
+                    char('-'),
+                    space0,
+                    char('-'),
+                    space0,
+                    char('-'),
+                    many0(one_of(
+                        " \t-",
+                    )),
+                )),
+                tuple((
+                    char('_'),
+                    space0,
+                    char('_'),
+                    space0,
+                    char('_'),
+                    many0(one_of(
+                        " \t_",
+                    )),
+                )),
+                tuple((
+                    char('*'),
+                    space0,
+                    char('*'),
+                    space0,
+                    char('*'),
+                    many0(one_of(
+                        " \t*",
+                    )),
+                )),
+            )),
+            line_ending,
+        )),
+        line_ending,
+    )(raw);
+
+    match result {
+        // a thematic break is just a thematic break
+        Ok((stream, _)) => {
+            let mut node = Node::new(NodeType::THEMATIC_BREAK);
+            node.data = NodeData::ThematicBreakData {};
+            let tree = Tree::new(node);
+            return Ok((
+                stream, tree,
+            ));
+        }
+        Err(e) => return Err(e),
+    }
+}
+
 fn paragraph(raw: &str) -> IResult<&str, Tree> {
     // This is a decent example for transforming a character specification into
     // a unit of meaning
     // Might need an indent level modifier
-    let result = many_till(
-        anychar, blank_line,
-    )(raw);
+    let result = tuple((
+        little_indent,
+        many_till(
+            anychar, blank_line,
+        ),
+    ))(raw);
     match result {
         Ok((stream, results)) => {
             let mut node = Node::new(NodeType::PARAGRAPH);
-            let content: String = String::from_iter(results.0);
+            let content: String = String::from_iter(results.1 .0);
             node.data = NodeData::ParagraphData { text: content };
             return Ok((
                 stream,
@@ -104,7 +177,10 @@ fn paragraph(raw: &str) -> IResult<&str, Tree> {
 
 fn block(raw: &str) -> IResult<&str, Tree> {
     return alt((
-        atx_header, blank_line, paragraph,
+        thematic_break,
+        atx_header,
+        blank_line,
+        paragraph,
     ))(raw);
 }
 
