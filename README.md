@@ -5,7 +5,11 @@
 
 ## Dependencies
 
+Once the project is more mature, it would be good to reduce dependencies on
+these where practical.
+
 - clap for argument parsing
+- nom for creating AST from markdown
 - crossterm for rendering to terminal
 - tokio for async support
 - reqwest for making requests
