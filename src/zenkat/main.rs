@@ -1,13 +1,12 @@
 use clap::Parser;
 use serde::{Deserialize, Serialize};
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::thread;
-use std::{collections::HashMap, num::NonZeroUsize};
 use tokio::sync::Mutex;
 
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
     routing::{get, post},
     Json, Router,
 };
@@ -37,7 +36,6 @@ struct TreeDetail {
 struct Args {
     #[arg(short, long)]
     tree: Vec<String>,
-
     #[arg(long, default_value = "0")]
     processes: usize,
 
@@ -64,10 +62,12 @@ async fn list_trees(State(state): State<AppState>) -> Json<Vec<TreeDetail>> {
             _ => continue,
         };
 
-        tree_details.push(TreeDetail {
-            name: tree.name.clone(),
-            path,
-        });
+        tree_details.push(
+            TreeDetail {
+                name: tree.name.clone(),
+                path,
+            },
+        );
     }
     return Json(tree_details);
 }
@@ -85,7 +85,9 @@ async fn get_tree(
                 let parser = state.app_config.doc_parser.clone();
                 tree.load_all_unloaded_docs(parser).await;
             }
-            return Json(Some(tree.clone()));
+            return Json(Some(
+                tree.clone(),
+            ));
         }
     }
     return Json(None);
@@ -113,7 +115,12 @@ async fn main() {
     let mut trees = vec![];
     for tree_arg in args.tree {
         let (name, path) = tree_arg.split_once(":").unwrap();
-        let cur_tree = Tree::load(name.into(), path.into(), args.follow_symlinks).await;
+        let cur_tree = Tree::load(
+            name.into(),
+            path.into(),
+            args.follow_symlinks,
+        )
+        .await;
         match cur_tree {
             Some(tree) => trees.push(tree),
             None => {}
@@ -130,13 +137,29 @@ async fn main() {
     };
 
     let app = Router::new()
-        .route("/tree", get(list_trees))
-        .route("/tree/:name", get(get_tree))
-        .route("/tree/:name/query", post(query_tree))
-        .route("/tree/:name/:node", get(get_node))
+        .route(
+            "/tree",
+            get(list_trees),
+        )
+        .route(
+            "/tree/:name",
+            get(get_tree),
+        )
+        .route(
+            "/tree/:name/query",
+            post(query_tree),
+        )
+        .route(
+            "/tree/:name/:node",
+            get(get_node),
+        )
         .with_state(state);
 
     let addr = vec![args.interface, ":".into(), args.port.into()].join("");
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(
+        listener, app,
+    )
+    .await
+    .unwrap();
 }
