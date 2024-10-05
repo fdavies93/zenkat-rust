@@ -4,7 +4,9 @@
 
 ### Goals
 
-Fundamental architecture in place. Provide basic input/output functionality. Correctly parse simple markdown documents and provide way to explore or visualise parse tree.
+Fundamental architecture in place. Provide basic input/output functionality.
+Correctly parse simple markdown documents and provide way to explore or
+visualise parse tree.
 
 ### Won't Do
 
@@ -12,10 +14,12 @@ Fundamental architecture in place. Provide basic input/output functionality. Cor
 
 ### Commitments
 
-#### CLI Tool
+#### CLI Tools
 
-- Equivalent to `zenkat list` must work and display some basic information such as word count.
-- `zenkat outline` should work *better* than in previous version, since it's about manipulating ASTs.
+- Equivalent to `zenkat list` must work and display some basic information such
+  as word count.
+- `zenkat outline` should work *better* than in previous version, since it's
+  about manipulating ASTs.
 
 #### Server
 
@@ -38,13 +42,15 @@ Fundamental architecture in place. Provide basic input/output functionality. Cor
 - ID should be in data so it's searchable
 
 - Block Parsing
-  - Horizontal rules (***, ---, ___)
+
+  - Horizontal rules (\*\*\*, ---, \_\_\_)
   - Setext headings
   - Indented code blocks
   - Fenced code blocks
   - Link reference definitions (may delay)
 
 - Container parsing
+
   - Block quotes
   - Lists
     - List items
@@ -52,6 +58,7 @@ Fundamental architecture in place. Provide basic input/output functionality. Cor
       - Unordered list items `[*-+]`
 
 - Inline parsing
+
   - Emphasis and strong emphasis
   - Links
   - Backslash escapes
